@@ -1,12 +1,14 @@
 # SelectIQ
 ## Product Requirements Document (PRD)
 
-**Version:** 1.0  
-**Status:** Product discovery complete — ready for technical architecture and feasibility planning  
+**Version:** 1.1<br>
+**Status:** Product requirements and Alpha user stories finalized — ready for implementation<br>
 **Product type:** AI-assisted, preference-learning photo culling application  
 **Initial release:** Local research prototype (MVP)  
 **Primary platform:** Web application running locally on an Apple Silicon Mac  
 **Target users:** Independent photographers participating in controlled product evaluations
+
+**Alpha user stories:** [SelectIQ_User_Stories.md](SelectIQ_User_Stories.md)
 
 ---
 
@@ -30,6 +32,7 @@ The proposed gallery should:
 - Preserve variety where it meaningfully improves the collection.
 - Include potentially valuable photographs even when they lost individual comparisons.
 - Identify recommendations where the system has insufficient confidence.
+- Treat technical characteristics such as blur as context-dependent evidence rather than automatic defects.
 
 The photographer reviews the proposed gallery, removes unwanted photographs, and exports a list of selected filenames.
 
@@ -83,9 +86,9 @@ The final output is always a recommendation that the photographer controls.
 
 ## 4.1 Primary product goals
 
-**Goal 1 — Personalized selection**
+**Goal 1 — Personalized, context-aware selection**
 
-Generate a curated gallery that reflects the photographer's demonstrated preferences rather than generic visual quality alone.
+Generate a curated gallery that reflects the photographer's creative brief and demonstrated preferences rather than generic visual quality alone. Explicit or repeatedly demonstrated artistic preferences must be able to override default technical-quality assumptions.
 
 **Goal 2 — Efficient learning**
 
@@ -197,7 +200,7 @@ The MVP must support:
 2. Validating and processing uploaded photographs.
 3. Entering a free-text creative brief.
 4. Specifying a desired final collection size.
-5. Analyzing technical and visual image characteristics.
+5. Analyzing technical and visual image characteristics as context-dependent signals rather than automatic rejection rules.
 6. Identifying visually similar photographs.
 7. Generating adaptive image comparisons.
 8. Capturing preferences between two photographs.
@@ -258,6 +261,8 @@ Example:
 
 The prompt is not constrained to predefined categories.
 
+The brief may explicitly describe context-dependent technical preferences. For example, a photographer may request sharp formal portraits while welcoming expressive motion blur in dance-floor photographs.
+
 The application may display example prompts, but these are optional.
 
 ## Step 3 — Choose the target collection size
@@ -278,6 +283,8 @@ The system must reject invalid targets, including zero, negative values, and cou
 SelectIQ performs image processing to extract information relevant to selection.
 
 This includes technical characteristics, visual representations, and relationships among photographs.
+
+Measured characteristics such as low sharpness, unusual exposure, grain, or motion blur are evidence for later ranking. They are not automatic defects and must be interpreted in the context of the creative brief, image content, and demonstrated preferences.
 
 The user sees processing progress.
 
@@ -346,6 +353,8 @@ SelectIQ evaluates the gallery using:
 - Learned project-specific preferences.
 - The contribution each photograph makes to the proposed collection.
 
+Explicit and repeatedly demonstrated artistic preferences take precedence over generic technical defaults. A technically unconventional photograph may rank highly when it contributes emotion, movement, atmosphere, or storytelling value requested by the photographer.
+
 The application proposes exactly the requested number of photographs, subject to sufficient valid photographs being available.
 
 For a requested target of 80, the initial selection must contain 80 unique photographs.
@@ -403,9 +412,13 @@ The application shall provide a free-text field for describing the desired creat
 
 The brief may specify mood, style, subject matter, emotional tone, or storytelling priorities.
 
+The brief may also specify context-dependent treatment of technical characteristics. Examples include preferring motion blur for energetic dancing, accepting grain in low-light documentary photographs, or requiring sharp focus for formal portraits.
+
 The system shall not require structured preference fields.
 
 The creative brief shall remain available throughout the project.
+
+The system shall preserve enough structured interpretation or semantic evidence to distinguish positive, negative, neutral, and context-specific preferences. The original brief remains authoritative evidence and must not be discarded after interpretation.
 
 ## FR-03 — Target count
 
@@ -431,6 +444,14 @@ Required capabilities include:
 - Detection of obvious visual redundancy.
 
 The system must distinguish measured technical characteristics from subjective artistic quality.
+
+Technical measurements are signals, not universal quality judgments. A low sharpness score, unusual exposure, grain, or similar characteristic shall not automatically disqualify or penalize a photograph without considering the photographer's brief, the photograph's context, and demonstrated preferences.
+
+When the photographer explicitly requests a characteristic such as expressive motion blur, that preference shall be capable of reducing, removing, or reversing the default technical penalty for photographs in the relevant context.
+
+Context-specific preferences shall not be applied indiscriminately. For example, a request accepting motion blur in dance-floor photographs does not imply that missed focus should be preferred in formal portraits.
+
+When SelectIQ cannot reliably determine whether a technical characteristic is intentional, harmful, or story-supporting, the photograph shall remain eligible and may be marked uncertain for human review.
 
 No photograph may be excluded solely because it lost a pairwise comparison.
 
@@ -508,6 +529,8 @@ However, repeated demonstrated preferences may cause the system to adjust its in
 
 SelectIQ shall not interrupt the photographer solely because choices appear inconsistent with the original brief.
 
+Explicit instructions and repeated choices shall take precedence over generic technical-quality defaults. When the brief and later choices conflict with each other, the demonstrated project-specific choices may adjust ranking while the original brief remains preserved.
+
 The system should preserve the original brief and the recorded choices for analysis and evaluation.
 
 ## FR-10 — Curated gallery generation
@@ -520,7 +543,7 @@ Selection should prioritize:
 
 1. Alignment with demonstrated preferences.
 2. Relevance to the intended creative direction.
-3. Individual image quality and visual value.
+3. Contextual image value, including technical evidence, emotion, storytelling contribution, and artistic intent.
 4. Avoidance of obvious unnecessary repetition.
 5. Additional visual variety when it meaningfully improves the collection.
 
@@ -545,6 +568,7 @@ Examples include:
 - Closely competing photographs.
 - Unclear contribution to the overall gallery.
 - Ambiguous selection among visually similar frames.
+- Unclear distinction between an intentional artistic characteristic and an accidental technical problem.
 
 Uncertainty must not be represented as a guarantee of correctness or an arbitrary probability without calibration.
 
@@ -754,6 +778,8 @@ It should help prevent obvious repetitive selections but should not override str
 All valid photographs remain eligible for the proposed collection throughout the learning phase.
 
 Technical analysis and comparison outcomes may influence rankings but must not silently remove candidates from consideration.
+
+Generic technical-quality assumptions must yield to explicit or repeatedly demonstrated project-specific preferences. Technical characteristics may be weighted differently by context within the same gallery.
 
 ## 10.6 Final collection size
 
@@ -978,6 +1004,16 @@ The requested target is stored correctly.
 
 All valid photographs are processed into representations that can support comparison and ranking.
 
+Measured technical characteristics are stored as evidence and do not automatically exclude a photograph.
+
+### AC-04A — Context-aware technical interpretation
+
+Given a brief requesting sharp formal portraits but accepting expressive motion blur in dance-floor photographs, SelectIQ applies the blur preference only in the relevant context.
+
+An expressive, story-relevant motion-blurred photograph remains eligible and can outrank a sharp but irrelevant photograph.
+
+If the system cannot determine whether blur is intentional or detrimental, it retains the photograph and may flag the recommendation as uncertain rather than silently rejecting it.
+
 ### AC-05 — Adaptive comparisons
 
 The participant completes approximately 20–40 A/B comparisons.
@@ -1046,6 +1082,7 @@ The PRD relies on the following assumptions:
 8. A single-session workflow is acceptable for the research demonstration.
 9. The final export does not need to contain image files.
 10. The photographer is responsible for final creative decisions.
+11. Technical conventions such as sharpness are not universal measures of artistic value and may be intentionally violated.
 
 These assumptions should be revisited if testing shows they are invalid.
 
@@ -1112,6 +1149,12 @@ Participants may rate a visually appealing gallery positively even when the AI o
 Participant-supplied galleries may contain identifiable people or private events.
 
 **Mitigation:** Use permissioned galleries, disclose processing methods, and establish data-retention controls before testing.
+
+## Risk 11 — Technical-quality bias
+
+Simple sharpness, exposure, or aesthetic metrics may incorrectly suppress photographs whose blur, grain, exposure, or other unconventional qualities contribute to the intended story.
+
+**Mitigation:** Treat technical measurements as contextual signals, allow explicit and demonstrated preferences to override defaults, test with intentional and accidental examples, and route ambiguous judgments to uncertainty review.
 
 # 18. Project Milestones
 
@@ -1184,7 +1227,7 @@ Its defining characteristics are:
 
 - **Personalized:** Learns from the photographer's choices during the project.
 - **Adaptive:** Selects comparisons based on what remains uncertain.
-- **Creative:** Uses the intended story rather than technical quality alone.
+- **Creative:** Treats technical characteristics in the context of the intended story instead of enforcing a generic definition of image quality.
 - **Collection-aware:** Avoids unnecessary repetition while preserving valuable related photographs.
 - **Transparent:** Highlights uncertain recommendations.
 - **Human-controlled:** Allows the photographer to remove suggestions before finalizing.
