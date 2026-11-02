@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "scenario": "retirement",
+  "private_fixture_subdirectory": "retirement",
+  "required_categories": [
+    "retiree_portrait",
+    "family_or_colleague_relationship",
+    "speech",
+    "presentation",
+    "embrace",
+    "candid_reaction",
+    "posed_group",
+    "detail_or_venue",
+    "repeated_ceremony_sequence",
+    "low_light_emotional_moment",
+    "accidental_missed_focus"
+  ],
+  "photographs": []
+}
+

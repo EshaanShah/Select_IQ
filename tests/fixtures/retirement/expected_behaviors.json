@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scenario": "retirement",
+  "behaviors": [
+    {
+      "id": "retirement_emotion_over_detail",
+      "expectation": "A low-light emotional moment may outrank a technically cleaner but less relevant detail."
+    },
+    {
+      "id": "retirement_group_sharpness_context",
+      "expectation": "A sports motion-blur preference must not change expectations for a posed retirement group portrait."
+    },
+    {
+      "id": "retirement_sequence_redundancy",
+      "expectation": "Repeated speech and presentation frames are reduced while distinct emotional beats remain eligible."
+    },
+    {
+      "id": "retirement_story_coverage",
+      "expectation": "The proposal represents relationships, milestone moments, portraits, and atmosphere."
+    }
+  ]
+}
+

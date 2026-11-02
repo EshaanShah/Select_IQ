@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "selectiq"
+version = "0.1.0"
+description = "Local SelectIQ Alpha API and photo-curation engine"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "numpy>=2,<3",
+  "opencv-python-headless>=4.10,<5",
+  "open-clip-torch>=2.29,<3",
+  "pillow>=11,<12",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+  "scikit-learn>=1.6,<2",
+  "torch>=2.5,<3",
+  "uvicorn[standard]>=0.34,<1"
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.9,<1"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/selectiq"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+

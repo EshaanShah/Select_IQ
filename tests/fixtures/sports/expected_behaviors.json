@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scenario": "sports",
+  "behaviors": [
+    {
+      "id": "sports_peak_action_over_empty",
+      "expectation": "A relevant peak-action frame may outrank a sharper frame with no meaningful action."
+    },
+    {
+      "id": "sports_contextual_panning_blur",
+      "expectation": "Requested panning blur may help relevant action photographs without protecting unrelated missed-focus frames."
+    },
+    {
+      "id": "sports_burst_redundancy",
+      "expectation": "Burst handling reduces repetition without enforcing one selected frame per burst."
+    },
+    {
+      "id": "sports_story_coverage",
+      "expectation": "Action, reaction, celebration, and context remain eligible for a coherent sports story."
+    }
+  ]
+}
+

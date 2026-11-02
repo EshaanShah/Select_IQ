@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# JavaScript
+node_modules/
+frontend/dist/
+playwright-report/
+test-results/
+
+# Environment and local secrets
+.env
+.env.local
+
+# SelectIQ runtime data and private galleries
+var/**
+!var/projects/
+!var/projects/.gitkeep
+!var/cache/
+!var/cache/.gitkeep
+!var/exports/
+!var/exports/.gitkeep
+private-fixtures/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
