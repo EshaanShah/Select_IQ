@@ -1,8 +1,8 @@
 # SelectIQ — Technical Design Document (TDD)
 
-**Version:** 1.0  
+**Version:** 1.1<br>
 **Status:** Proposed technical architecture, pending implementation benchmarks  
-**Product requirements:** SelectIQ PRD v1.0  
+**Product requirements:** SelectIQ PRD v1.2<br>
 **Target deployment:** Local Apple Silicon Mac  
 **Input:** Approximately 300 JPEG photographs and one creative brief  
 **Output:** User-selected number of curated photographs, uncertainty indicators, and downloadable filename list  
@@ -1518,68 +1518,36 @@ This is sufficient without distributed compute.
 
 # 24. Repository Structure
 
+The Alpha uses a modular monorepo with one React frontend, one FastAPI backend, one reusable Python package, and one shared fixture/e2e test area. The detailed ownership rules and story mapping are defined in [ALPHA_REPO_STRUCTURE.md](ALPHA_REPO_STRUCTURE.md).
+
 ```text
-selectiq/
-|
-|-- frontend/
-|   |-- src/
-|       |-- pages/
-|       |-- components/
-|       |-- hooks/
-|       |-- services/
-|       |-- types/
-|
-|-- backend/
-|   |-- app/
-|   |   |-- main.py
-|   |   |-- api/
-|   |   |-- schemas/
-|   |   |-- database/
-|   |   |-- services/
-|   |
-|   |-- vision/
-|   |   |-- ingest.py
-|   |   |-- preprocess.py
-|   |   |-- metrics.py
-|   |   |-- embeddings.py
-|   |   |-- similarity.py
-|   |
-|   |-- intelligence/
-|   |   |-- brief.py
-|   |   |-- preference_model.py
-|   |   |-- active_learning.py
-|   |   |-- curation.py
-|   |   |-- uncertainty.py
-|   |   |-- multimodal.py
-|   |
-|   |-- workers/
-|   |   |-- runner.py
-|   |
-|   |-- validation/
-|   |   |-- validator.py
-|   |
-|   |-- tests/
-|
-|-- data/
-|   |-- projects/
-|   |-- artifacts/
-|   |-- exports/
-|
-|-- scripts/
-|   |-- benchmark_images.py
-|   |-- simulate_comparisons.py
-|
-|-- docs/
-|   |-- PRD.md
-|   |-- TDD.md
-|
-|-- README.md
-|-- .gitignore
+Select_IQ/
+├── frontend/                 # React workflow by user-facing feature
+├── backend/
+│   ├── src/selectiq/
+│   │   ├── api/              # Thin FastAPI routes
+│   │   ├── domain/           # Provider-independent product types
+│   │   ├── application/      # Use-case orchestration
+│   │   ├── intelligence/     # Brief, preference, curation, uncertainty
+│   │   ├── infrastructure/   # SQLite, filesystem, model adapters
+│   │   └── jobs/             # One local gallery-analysis runner
+│   └── tests/                # Unit, integration, and contract tests
+├── tests/
+│   ├── e2e/                  # Complete Alpha photographer workflow
+│   └── fixtures/
+│       ├── sports/           # Sports manifests and expected behavior
+│       └── retirement/       # Retirement manifests and expected behavior
+├── scripts/                  # Dev, test, benchmark, and simulation tools
+├── var/                      # Gitignored runtime projects/cache/exports/db
+├── docs/                     # Evaluation notes and decisions
+└── project specification documents
 ```
 
-The `data/` directory must be excluded from Git.
+The `var/` directory must be excluded from Git.
 
-Real photographer images and temporary model artifacts must not be committed to the repository.
+Real photographer images and temporary model artifacts must not be committed unless they have explicit permission for public repository use. Fixture manifests may refer to private local galleries through environment configuration.
+
+The Alpha remains a modular monolith. It does not require authentication packages, cloud storage, distributed queues, microservices, or Beta integrations.
 
 ---
 
