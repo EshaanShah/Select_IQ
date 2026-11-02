@@ -1,7 +1,7 @@
 # SelectIQ
 ## Product Requirements Document (PRD)
 
-**Version:** 1.1<br>
+**Version:** 1.2<br>
 **Status:** Product requirements and Alpha user stories finalized — ready for implementation<br>
 **Product type:** AI-assisted, preference-learning photo culling application  
 **Initial release:** Local research prototype (MVP)  
@@ -942,7 +942,30 @@ Recruit a small group of photographers willing to provide galleries and evaluate
 
 The exact participant count depends on availability.
 
-## 14.2 Study procedure
+## 14.2 Required representative gallery scenarios
+
+Alpha testing shall include photographer-supplied or permissioned examples from at least these two real shooting contexts:
+
+**Sports gallery**
+
+- Peak action, athlete reactions, celebrations, sideline or bench emotion, and environmental storytelling.
+- High-speed burst sequences and near-duplicate frames where timing, ball position, body position, expression, or obstruction determines the stronger photograph.
+- Intentional panning or motion blur that may communicate speed and energy.
+- Accidental missed focus, camera shake, blocked subjects, or frames with no meaningful action.
+- Creative briefs that may prefer technically unconventional action photographs when they strengthen the story.
+
+**Retirement photoshoot gallery**
+
+- The retiree, family, colleagues, speeches, presentations, embraces, candid reactions, posed groups, details, and venue context.
+- Repeated ceremony or group-photo sequences where small differences in expression, eye contact, gesture, or subject coverage matter.
+- Low-light or available-light photographs where grain, unusual exposure, or minor blur may preserve an important emotional moment.
+- Creative briefs that balance respectful portraits with relationships, celebration, career history, and atmosphere.
+
+The two scenarios must not share one universal scoring rule. SelectIQ should learn and apply the photographer's intent for the current gallery. For example, motion blur may be desirable in a sports action frame but undesirable in a posed retirement group portrait.
+
+Automated tests may use permissioned photographs, small derived fixture images, annotations, or synthetic feature records. Real participant photographs must not be committed to a public repository unless the photographer and depicted subjects have granted appropriate permission.
+
+## 14.3 Study procedure
 
 For each participant:
 
@@ -957,11 +980,11 @@ For each participant:
 9. Export the final selection.
 10. Collect the satisfaction rating and comments.
 
-## 14.3 Primary outcome
+## 14.4 Primary outcome
 
 Overall photographer satisfaction with the proposed curated gallery.
 
-## 14.4 Secondary outcomes
+## 14.5 Secondary outcomes
 
 - Number of comparisons required.
 - Fraction of proposed images removed.
@@ -969,8 +992,9 @@ Overall photographer satisfaction with the proposed curated gallery.
 - Time to produce the proposal.
 - Photographer comments about relevance and missing content.
 - System failures or usability problems.
+- Differences in satisfaction and removal behavior between sports and retirement galleries.
 
-## 14.5 Evaluation limitations
+## 14.6 Evaluation limitations
 
 A subjective satisfaction rating cannot prove that the model selected an objectively optimal gallery.
 
@@ -1013,6 +1037,16 @@ Given a brief requesting sharp formal portraits but accepting expressive motion 
 An expressive, story-relevant motion-blurred photograph remains eligible and can outrank a sharp but irrelevant photograph.
 
 If the system cannot determine whether blur is intentional or detrimental, it retains the photograph and may flag the recommendation as uncertain rather than silently rejecting it.
+
+### AC-04B — Representative gallery coverage
+
+The automated test suite includes sports and retirement scenarios.
+
+Sports coverage includes peak-action selection, burst redundancy, intentional motion or panning blur, accidental missed focus, and emotional reaction photographs.
+
+Retirement coverage includes speeches, presentations, candid reactions, posed groups, repeated ceremony frames, and low-light emotional moments.
+
+The same technical characteristic can produce different ranking evidence when the gallery context and creative brief differ.
 
 ### AC-05 — Adaptive comparisons
 

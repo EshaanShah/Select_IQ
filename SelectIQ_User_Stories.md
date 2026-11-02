@@ -1,8 +1,8 @@
 # SelectIQ Alpha — Finalized User Stories
 
-**Version:** 1.0<br>
+**Version:** 1.1<br>
 **Status:** Finalized for Alpha implementation<br>
-**Source of truth:** SelectIQ PRD v1.1<br>
+**Source of truth:** SelectIQ PRD v1.2<br>
 **Method:** Each story is implemented with test-driven development: write the listed tests, confirm meaningful failure, implement the minimum behavior, and refactor only while the tests remain green.
 
 ---
@@ -63,6 +63,7 @@ As a photographer, I want to import a local gallery of JPEG photographs so that 
 
 - Importing a valid JPEG creates one accepted photo record with the correct filename.
 - Importing approximately 300 valid JPEGs accounts for every file.
+- A permissioned sports fixture gallery and a permissioned retirement fixture gallery are both accepted without scenario-specific ingestion failures.
 - Two files with the same filename receive different internal IDs and storage locations.
 - An unsupported file is rejected with a defined error.
 - A corrupt JPEG is rejected without terminating the gallery import.
@@ -99,6 +100,8 @@ As a photographer, I want to describe the story and aesthetic I want in natural 
 - “Avoid blurry photographs” produces a negative blur preference.
 - “Keep expressive motion blur on the dance floor” produces a positive, dance-context blur preference.
 - “Sharp formal portraits, but energetic dance photographs may be blurry” produces two distinct context rules.
+- A sports brief such as “prioritize peak action, athlete emotion, and energetic panning blur” produces positive, sports-context evidence.
+- A retirement brief such as “prioritize the retiree’s relationships, speeches, embraces, and respectful group portraits” produces distinct retirement-context evidence.
 - The dance-floor blur preference does not reward missed focus in a formal portrait fixture.
 - Malformed AI output is rejected or converted to a safe validated fallback without changing the original brief.
 
@@ -163,6 +166,8 @@ As a photographer, I want SelectIQ to treat technical characteristics in the con
 - With a brief requesting expressive motion blur, a relevant motion-blur fixture is not suppressed by the default blur penalty.
 - A relevant expressive-blur fixture outranks a sharp irrelevant fixture when the creative brief supports it.
 - A dance-specific blur preference does not reverse the penalty for a missed-focus formal portrait.
+- A sports panning-blur preference can preserve a peak-action frame without preserving an unrelated missed-focus frame.
+- A retirement preference can preserve a grainy low-light embrace while still deprioritizing a blurred posed group portrait.
 - An ambiguous blur case remains eligible and exposes an uncertainty reason.
 - Analysis failure for one photograph does not terminate processing for the rest of the gallery.
 
@@ -201,6 +206,8 @@ As a photographer, I want to choose between strategically selected pairs of phot
 - A predefined or custom reason is stored when supplied.
 - Reversing pair display order preserves equivalent preference evidence.
 - A recorded choice changes at least one subsequent ranking or pair-selection decision in a controlled fixture.
+- Sports comparisons include informative choices within burst sequences and between peak action, reaction, and contextual frames.
+- Retirement comparisons include informative choices among speech, presentation, embrace, candid-reaction, and posed-group frames.
 - A resolved pair is not immediately repeated without a documented reason.
 - A new project begins with a separate preference-learning context.
 - The configured comparison limit ends the learning phase even when uncertainty remains.
@@ -237,6 +244,8 @@ As a photographer, I want SelectIQ to propose a target-sized collection that ref
 - A previous A/B loser can be selected when it improves the collection.
 - Near-duplicate evidence reduces unnecessary repetition without enforcing a one-per-group rule.
 - Two related photographs can both be selected when each adds documented value.
+- A sports proposal chooses meaningful frames from a burst while retaining distinct action, reaction, and storytelling photographs.
+- A retirement proposal limits repetitive ceremony frames while retaining distinct relationships, milestones, portraits, and atmosphere.
 - An explicit artistic preference can outweigh a generic technical metric.
 - Identical stored inputs and deterministic configuration produce the same proposal.
 - Invalid or incomplete output is rejected rather than presented as finished.
@@ -270,6 +279,7 @@ As a photographer, I want uncertain recommendations identified and explained so 
 - An uncertain photograph is included in both the proposal total and uncertain subgroup without duplication.
 - Weak or conflicting evidence produces a defined uncertainty reason.
 - Ambiguous intentional-versus-accidental blur can produce an uncertainty reason.
+- An ambiguous sports motion-blur frame and an ambiguous low-light retirement moment can be retained for uncertainty review instead of silently rejected.
 - A confident recommendation is not placed in the uncertain subgroup.
 - A gallery with no uncertain recommendations renders a valid empty state.
 - Every explanation is associated with the correct photograph.
@@ -372,11 +382,59 @@ As a participating photographer, I want to rate SelectIQ’s proposed collection
 - A rating with no comment is accepted.
 - A rating with a comment preserves that comment.
 - Feedback is linked to the correct project.
+- Evaluation metrics can be grouped by sports and retirement gallery scenario without mixing project-specific preferences.
 - Submitting feedback does not change selected-photo IDs or export results.
 
 ---
 
-# 2. Traceability Check
+# 2. Required Test Gallery Scenarios
+
+The Alpha test suite must exercise the same kinds of photographs the product will actually curate. At minimum, maintain two permissioned fixture sets or equivalent annotated/synthetic representations.
+
+## Sports fixture set
+
+Include representative cases for:
+
+- Peak action with visible game context.
+- Athlete and team reactions before, during, and after action.
+- Celebration, sideline, bench, crowd, and environmental storytelling.
+- High-speed bursts containing near-duplicates with meaningful timing differences.
+- Intentional panning or motion blur that communicates energy.
+- Accidental missed focus, camera shake, obstruction, and empty-action frames.
+
+Required behavioral checks:
+
+- A relevant peak-action frame can outrank a technically cleaner frame with no meaningful action.
+- A requested panning-blur aesthetic can override the default blur penalty only for relevant action photographs.
+- Burst handling limits redundancy without automatically selecting only one frame.
+- Reaction and context photographs remain eligible even when they are not the sharpest action frames.
+
+## Retirement photoshoot fixture set
+
+Include representative cases for:
+
+- The retiree alone and with family, friends, and colleagues.
+- Speeches, presentations, embraces, candid reactions, posed groups, details, and venue context.
+- Repeated ceremony and group-photo sequences with subtle expression or eye-contact differences.
+- Low-light emotional moments with grain, unusual exposure, or minor motion blur.
+- Accidental missed focus and technically weak frames that do not add story value.
+
+Required behavioral checks:
+
+- An emotionally important low-light moment can outrank a technically cleaner but less relevant detail.
+- A request for respectful, sharp group portraits does not inherit a blur preference from another context.
+- Repetitive speech or presentation frames are reduced without removing distinct emotional beats.
+- The final proposal represents the retiree’s relationships and milestone rather than optimizing only for generic aesthetics.
+
+## Fixture privacy and provenance
+
+- Use photographs supplied with permission for development and evaluation.
+- Do not commit private participant galleries to the public repository without appropriate permission from the photographer and depicted subjects.
+- Automated unit tests may use small derived images, annotations, or synthetic feature records when real photographs cannot be published.
+- Record fixture provenance, permitted use, scenario, expected behavior, and any known limitations.
+- Keep sports and retirement expectations project-specific; do not encode one genre’s aesthetic as a universal rule.
+
+# 3. Traceability Check
 
 The finalized stories cover every required Alpha capability:
 
@@ -393,6 +451,6 @@ The finalized stories cover every required Alpha capability:
 | Final human review and removal | US-08 |
 | Filename export | US-09 |
 | Satisfaction evaluation and metrics | US-10 |
+| Sports and retirement fixture coverage | US-01, US-02, US-04 through US-07, US-10 |
 
 No additional Alpha user story is required for blur specifically. Blur is a cross-cutting example of the broader context-aware technical-evidence requirement and is tested in US-02, US-04, US-06, and US-07.
-
