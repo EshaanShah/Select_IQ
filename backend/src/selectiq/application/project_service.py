@@ -34,7 +34,7 @@ class ProjectService:
         self,
         repository: ProjectRepository,
         image_store: ImageStore,
-        max_gallery_size: int = 300,
+        max_gallery_size: int = 30,
     ) -> None:
         self.repository = repository
         self.image_store = image_store

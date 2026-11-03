@@ -10,6 +10,8 @@
 
 **Alpha user stories:** [SelectIQ_User_Stories.md](SelectIQ_User_Stories.md)
 
+> **Alpha scope boundary:** [ALPHA_SCOPE.md](ALPHA_SCOPE.md) is authoritative for the November 2026 Alpha: 10–30 inputs, a typical target of 5, and 5–10 comparisons. The 300-input, 80-output, and 20–40-comparison requirements below describe the broader Beta/research MVP, not the Alpha demo.
+
 ---
 
 # 1. Executive Summary

@@ -9,6 +9,8 @@
 **Primary interaction:** Approximately 20–40 adaptive A/B comparisons  
 **Cost objective:** Free or under $25 in external services for the initial demonstration
 
+> **Alpha scope boundary:** [ALPHA_SCOPE.md](ALPHA_SCOPE.md) is authoritative for the November 2026 Alpha: 10–30 inputs, a typical target of 5, and 5–10 comparisons using local file storage plus SQLite or an equally simple metadata store. The larger-scale architecture below is Beta/later design material.
+
 ---
 
 # 1. Executive Technical Summary
@@ -154,7 +156,7 @@ Eventually, these steps can be wrapped in a single developer startup script.
 | Styling | Tailwind CSS | Rapid, consistent interface development |
 | Backend | Python + FastAPI | Strong integration with ML tooling |
 | Data validation | Pydantic | Typed API contracts and output validation |
-| Session database | PostgreSQL | Transactional persistence and row locking for concurrent imports |
+| Session database | SQLite | Simple local persistence without a database server |
 | File storage | Local filesystem | Avoid cloud storage cost |
 | Image decoding | Pillow | JPEG loading, orientation, resizing |
 | Image metrics | OpenCV + NumPy | Exposure, sharpness, contrast |
@@ -173,9 +175,9 @@ For a local research prototype, we do not need server-side rendering, public SEO
 
 Vite provides a simpler development environment for the required upload, comparison, and gallery screens.
 
-### Why PostgreSQL?
+### Why SQLite instead of PostgreSQL?
 
-PostgreSQL provides durable project metadata, comparisons, scores, and selections while supporting transactional capacity enforcement for concurrent uploads. Docker Compose keeps the local setup reproducible.
+Only a few small galleries will be tested, and the Alpha runs on one machine. SQLite stores the necessary project metadata, comparisons, scores, and selections without adding infrastructure.
 
 The image files and embeddings remain on disk.
 
@@ -1085,7 +1087,7 @@ This fallback is a degraded mode, not equivalent evidence that the full generati
 
 ## 16.1 Storage approach
 
-PostgreSQL will store project metadata and structured decisions.
+SQLite will store project metadata and structured decisions.
 
 Local directories will hold:
 
@@ -1237,7 +1239,7 @@ Use a separate Python worker process that accepts queued job records.
 
 The database tracks job state.
 
-The initial MVP can use PostgreSQL-backed job coordination or a similarly simple local mechanism.
+The initial MVP can use SQLite-backed job coordination or a similarly simple local mechanism.
 
 ## 18.3 Job lifecycle
 
@@ -1527,7 +1529,7 @@ Select_IQ/
 │   │   ├── domain/           # Provider-independent product types
 │   │   ├── application/      # Use-case orchestration
 │   │   ├── intelligence/     # Brief, preference, curation, uncertainty
-│   │   ├── infrastructure/   # PostgreSQL, filesystem, model adapters
+│   │   ├── infrastructure/   # SQLite, filesystem, model adapters
 │   │   └── jobs/             # One local gallery-analysis runner
 │   └── tests/                # Unit, integration, and contract tests
 ├── tests/
@@ -1550,6 +1552,8 @@ The Alpha remains a modular monolith. It does not require authentication package
 ---
 
 # 25. Implementation Phases
+
+> **Beta/research roadmap:** The 300-image and 80-selection milestones in this section are not Alpha acceptance criteria. Alpha delivery is governed by [ALPHA_SCOPE.md](ALPHA_SCOPE.md) and the A-01–A-10 stories.
 
 ## Phase 0 — Environment validation
 

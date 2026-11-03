@@ -4,6 +4,8 @@
 **Scope:** The ten finalized Alpha user stories in `SelectIQ_User_Stories.md`<br>
 **Goal:** Keep the three-day Alpha implementation small, testable, local-first, and easy to explain during the engineering-methodology presentation.
 
+> [ALPHA_SCOPE.md](ALPHA_SCOPE.md) and [SelectIQ_User_Stories.md](SelectIQ_User_Stories.md) are authoritative. Advanced uncertainty, 300-photo scale, and research-grade curation remain Beta/later scope.
+
 ---
 
 # 1. Structure
@@ -97,7 +99,7 @@ Select_IQ/
 │   ├── projects/
 │   ├── cache/
 │   ├── exports/
-│   └── (structured state lives in local PostgreSQL)
+│   └── selectiq.sqlite3
 │
 ├── docs/
 │   ├── evaluation/
@@ -122,11 +124,11 @@ Only directories needed by the Alpha stories should be created. Do not add empty
 
 The frontend renders the photographer workflow and calls the API. It must not contain image-scoring, preference-learning, curation, or uncertainty algorithms.
 
-- `gallery-upload/`: file selection, accepted/rejected counts, and target count. Covers US-01 and US-03.
-- `creative-brief/`: free-text intent and contextual technical preferences. Covers US-02.
-- `comparisons/`: A/B display, selection, and optional reason. Covers US-05.
-- `gallery-review/`: proposal grid, uncertainty group, explanation, removal, and export action. Covers US-06 through US-09.
-- `evaluation/`: satisfaction rating and optional comments. Covers US-10.
+- `gallery-upload/`: file selection and accepted/rejected counts. Covers A-01.
+- `creative-brief/`: prompt, target, and auditable AI interpretation. Covers A-02 and A-04.
+- `comparisons/`: A/B display and saved feedback. Covers A-05 and A-06.
+- `gallery-review/`: deterministic top-K proposal, removal, and CSV export. Covers A-07 and A-08.
+- `evaluation/`: end-to-end flow and satisfaction feedback. Covers A-09 and A-10.
 - `shared/api/`: the only frontend layer that makes HTTP calls.
 - `shared/types/`: API-facing TypeScript contracts; no business logic.
 
@@ -136,21 +138,21 @@ The API validates requests, invokes application services, and returns typed resp
 
 - `projects.py`: create project, upload gallery, submit brief, set target, and read processing state.
 - `comparisons.py`: request the next pair and submit a preference.
-- `recommendations.py`: generate/read proposal, remove a selection, explain uncertainty, and export filenames.
+- `recommendations.py`: generate/read proposal, remove a selection, and export filenames.
 - `feedback.py`: submit the 1–5 satisfaction rating and optional comments.
 
 ## Domain
 
-`domain/` contains the stable language of the product: project, photograph, creative brief, comparison, recommendation, uncertainty reason, selection state, and feedback. Domain objects must not import FastAPI, React, PostgreSQL, OpenCV, or a specific AI provider.
+`domain/` contains the stable language of the product: project, photograph, creative brief, comparison, recommendation, uncertainty reason, selection state, and feedback. Domain objects must not import FastAPI, React, SQLite, OpenCV, or a specific AI provider.
 
 ## Application services
 
 Application services coordinate complete use cases. They depend on domain types and explicit infrastructure interfaces.
 
-- `project_service.py`: US-01 through US-04 orchestration.
-- `comparison_service.py`: US-05 workflow.
-- `recommendation_service.py`: US-06 through US-09 workflow.
-- `feedback_service.py`: US-10 workflow and evaluation metrics.
+- `project_service.py`: A-01 and A-02 orchestration.
+- `comparison_service.py`: A-05 and A-06 workflow.
+- `recommendation_service.py`: A-07 and A-08 workflow.
+- `feedback_service.py`: A-10 workflow and evaluation metrics.
 
 ## Intelligence
 
@@ -162,14 +164,14 @@ Application services coordinate complete use cases. They depend on domain types 
 - `preference_model.py`: learns project-specific ranking behavior from A/B choices.
 - `pair_selector.py`: chooses informative comparisons within the interaction budget.
 - `curator.py`: creates the target-sized, redundancy-aware proposal.
-- `uncertainty.py`: identifies weak, conflicting, or ambiguous decisions and creates grounded reasons.
+- `uncertainty.py`: reserved for Beta/later; it is not an Alpha completion dependency.
 
 ## Infrastructure
 
 Infrastructure isolates replaceable technical details.
 
 - `image_store.py`: local project folders, thumbnails, and source-file safety.
-- `project_repository.py`: PostgreSQL persistence for project state, comparisons, proposals, removals, exports, and feedback.
+- `project_repository.py`: SQLite persistence for project state, comparisons, proposals, removals, exports, and feedback.
 - `model_adapters.py`: pretrained encoder and optional multimodal provider interfaces.
 - `settings.py`: environment-driven paths, limits, model choices, and feature flags.
 
@@ -209,7 +211,7 @@ backend/tests/integration/
 └── test_feedback_flow.py
 ```
 
-These tests exercise an isolated PostgreSQL database, the local image store, application services, and controlled fake model adapters together.
+These tests exercise isolated SQLite storage, the local image store, application services, and controlled fake model adapters together.
 
 ## API contract tests
 
@@ -235,10 +237,9 @@ Maintain one primary Playwright scenario in `tests/e2e/alpha_workflow.spec.ts`:
 3. Wait for deterministic fake analysis.
 4. Complete controlled A/B comparisons.
 5. Generate the proposal.
-6. Review uncertainty.
-7. Remove a recommendation.
-8. Export filenames.
-9. Submit satisfaction feedback.
+6. Remove a recommendation.
+7. Export filenames.
+8. Submit satisfaction feedback.
 
 Run the same workflow against both the sports and retirement fixture manifests when time permits. The fast required CI path may use synthetic records, while local evaluation uses permissioned images.
 
@@ -277,9 +278,9 @@ The entire `var/` directory is ignored by Git.
 - `var/projects/`: uploaded project copies and thumbnails.
 - `var/cache/`: embeddings, metrics, and similarity artifacts.
 - `var/exports/`: generated filename lists.
-- PostgreSQL: local Alpha structured state, started through Docker Compose.
+- `var/selectiq.sqlite3`: local Alpha structured state.
 
-The application must never modify the photographer's source files. Uploaded working copies, generated thumbnails, embeddings, exports, and the local PostgreSQL data are disposable development artifacts.
+The application must never modify the photographer's source files. Uploaded working copies, generated thumbnails, embeddings, exports, and the SQLite database are disposable local artifacts.
 
 ---
 
@@ -315,16 +316,16 @@ Rules:
 
 | Story | Primary backend modules | Primary frontend feature | Primary tests |
 |---|---|---|---|
-| US-01 | `project_service`, `image_store`, `projects` route | `gallery-upload` | ingestion integration and API contract |
-| US-02 | `brief_interpreter`, `project_service` | `creative-brief` | brief interpreter unit tests |
-| US-03 | project domain validation, `project_service` | `gallery-upload` | target validation contract tests |
-| US-04 | `feature_extractor`, `similarity`, model adapters | processing state in `gallery-upload` | analysis and fixture-scenario tests |
-| US-05 | `preference_model`, `pair_selector`, `comparison_service` | `comparisons` | model, selector, and comparison-flow tests |
-| US-06 | `curator`, `recommendation_service` | `gallery-review` | curation and recommendation-flow tests |
-| US-07 | `uncertainty`, `recommendation_service` | `gallery-review` | uncertainty and explanation tests |
-| US-08 | recommendation state and repository | `gallery-review` | review-state integration tests |
-| US-09 | `recommendation_service`, `image_store` export | `gallery-review` | export integration and contract tests |
-| US-10 | `feedback_service`, repository | `evaluation` | feedback and metric-isolation tests |
+| A-01 | `project_service`, `image_store`, `projects` route | `gallery-upload` | ingestion integration and API contract |
+| A-02 | project validation and repository | `creative-brief` | prompt/target contract tests |
+| A-03 | `feature_extractor`, model adapters, cache | processing state | feature and cache tests |
+| A-04 | generative-model adapter, schema validation | `creative-brief` | real smoke test plus failure contracts |
+| A-05 | `comparison_service` | `comparisons` | comparison-flow tests |
+| A-06 | `preference_model` | `comparisons` | controlled before/after ranking tests |
+| A-07 | `curator`, `recommendation_service` | `gallery-review` | exact-K and sensitivity tests |
+| A-08 | recommendation state and export | `gallery-review` | removal/export integration tests |
+| A-09 | all Alpha services | complete workflow | Playwright happy path and failure smoke test |
+| A-10 | `feedback_service`, repository | `evaluation` | feedback linkage tests |
 
 ---
 

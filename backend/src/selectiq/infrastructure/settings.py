@@ -11,11 +11,11 @@ class Settings(BaseSettings):
 
     data_root: Path = Path("var")
     fixture_root: Path = Path("private-fixtures")
-    database_url: str = "postgresql+psycopg://selectiq:selectiq@localhost:5432/selectiq"
-    max_gallery_size: int = Field(default=300, ge=1)
+    database_url: str = "sqlite:///var/selectiq.sqlite3"
+    max_gallery_size: int = Field(default=30, ge=1)
     max_file_size_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
     max_decoded_pixels: int = Field(default=60_000_000, ge=1)
-    comparison_budget: int = 30
+    comparison_budget: int = 5
     model_adapter: str = "fake"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

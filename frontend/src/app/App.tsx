@@ -5,7 +5,7 @@ import type { ImportFailure } from "../shared/types";
 import "./app.css";
 
 const projectStorageKey = "selectiq.projectId";
-const galleryCapacity = 300;
+const galleryCapacity = 30;
 
 export function App() {
   const folderInput = useRef<HTMLInputElement>(null);

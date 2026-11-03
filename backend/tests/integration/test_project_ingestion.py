@@ -35,22 +35,22 @@ def test_duplicate_filenames_get_distinct_ids_and_paths(
     assert first.original_filename == second.original_filename == "same.jpg"
 
 
-def test_accounts_for_300_photos_across_submissions(
+def test_accounts_for_30_photos_across_submissions(
     project_service: ProjectService, jpeg_bytes: bytes
 ) -> None:
     project = project_service.create_project()
     first = project_service.import_photos(
         project.id,
-        [PhotoUpload(f"photo-{index}.jpg", BytesIO(jpeg_bytes)) for index in range(150)],
+        [PhotoUpload(f"photo-{index}.jpg", BytesIO(jpeg_bytes)) for index in range(15)],
     )
     second = project_service.import_photos(
         project.id,
-        [PhotoUpload(f"photo-{index}.jpg", BytesIO(jpeg_bytes)) for index in range(150, 300)],
+        [PhotoUpload(f"photo-{index}.jpg", BytesIO(jpeg_bytes)) for index in range(15, 30)],
     )
-    assert first.accepted_count == 150
-    assert second.accepted_count == 300
+    assert first.accepted_count == 15
+    assert second.accepted_count == 30
     stored = project_service.repository.get(project.id)
-    assert stored is not None and len(stored.photos) == 300
+    assert stored is not None and len(stored.photos) == 30
 
 
 def test_source_hash_remains_unchanged(project_service: ProjectService, jpeg_bytes: bytes) -> None:

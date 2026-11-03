@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Protocol
 from uuid import UUID, uuid4
 
@@ -102,13 +103,15 @@ class ImportFailureRow(Base):
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
-    engine = create_engine(database_url, pool_pre_ping=True)
+    connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    engine = create_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
     return sessionmaker(engine, expire_on_commit=False)
 
 
-class PostgresProjectRepository:
+class SqlProjectRepository:
     def __init__(self, session_factory: sessionmaker[Session]):
         self.session_factory = session_factory
+        self._write_lock = Lock()
 
     def save(self, project: Project) -> None:
         with self.session_factory.begin() as session:
@@ -129,14 +132,14 @@ class PostgresProjectRepository:
 
     def add_photo_if_capacity(self, photo: Photograph, capacity: int) -> bool:
         project_uuid = UUID(photo.project_id)
-        with self.session_factory.begin() as session:
-            project = session.scalar(
-                select(ProjectRow).where(ProjectRow.id == project_uuid).with_for_update()
-            )
+        with self._write_lock, self.session_factory.begin() as session:
+            project = session.get(ProjectRow, project_uuid)
             if project is None:
                 return False
             count = session.scalar(
-                select(func.count()).select_from(PhotoRow).where(PhotoRow.project_id == project_uuid)
+                select(func.count())
+                .select_from(PhotoRow)
+                .where(PhotoRow.project_id == project_uuid)
             )
             if int(count or 0) >= capacity:
                 return False

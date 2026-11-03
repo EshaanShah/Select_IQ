@@ -1,14 +1,14 @@
-import os
 from io import BytesIO
 
 import pytest
 from PIL import Image
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 from selectiq.application.project_service import ProjectService
 from selectiq.infrastructure.image_store import LocalImageStore
 from selectiq.infrastructure.project_repository import (
-    PostgresProjectRepository,
+    Base,
+    SqlProjectRepository,
     create_session_factory,
 )
 
@@ -25,18 +25,10 @@ def jpeg_bytes() -> bytes:
 
 
 @pytest.fixture
-def database_url() -> str:
-    value = os.getenv("SELECTIQ_TEST_DATABASE_URL")
-    if not value:
-        pytest.skip("SELECTIQ_TEST_DATABASE_URL is required for PostgreSQL integration tests")
-    return value
-
-
-@pytest.fixture
-def project_service(database_url: str, tmp_path) -> ProjectService:
+def project_service(tmp_path) -> ProjectService:
+    database_url = f"sqlite:///{tmp_path / 'selectiq-test.sqlite3'}"
     engine = create_engine(database_url)
-    with engine.begin() as connection:
-        connection.execute(text("TRUNCATE photo_import_failures, photos, projects CASCADE"))
-    repository = PostgresProjectRepository(create_session_factory(database_url))
+    Base.metadata.create_all(engine)
+    repository = SqlProjectRepository(create_session_factory(database_url))
     store = LocalImageStore(tmp_path, 25 * 1024 * 1024, 60_000_000)
-    return ProjectService(repository, store, max_gallery_size=300)
+    return ProjectService(repository, store, max_gallery_size=30)

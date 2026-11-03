@@ -2,10 +2,7 @@ from functools import lru_cache
 
 from selectiq.application.project_service import ProjectService
 from selectiq.infrastructure.image_store import LocalImageStore
-from selectiq.infrastructure.project_repository import (
-    PostgresProjectRepository,
-    create_session_factory,
-)
+from selectiq.infrastructure.project_repository import SqlProjectRepository, create_session_factory
 from selectiq.infrastructure.settings import Settings
 
 
@@ -19,7 +16,7 @@ def get_settings() -> Settings:
 @lru_cache
 def get_project_service() -> ProjectService:
     settings = get_settings()
-    repository = PostgresProjectRepository(create_session_factory(settings.database_url))
+    repository = SqlProjectRepository(create_session_factory(settings.database_url))
     image_store = LocalImageStore(
         data_root=settings.data_root,
         max_file_size_bytes=settings.max_file_size_bytes,
