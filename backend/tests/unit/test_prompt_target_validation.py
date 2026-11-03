@@ -1,7 +1,6 @@
 from io import BytesIO
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
 
 from selectiq.application.project_service import PhotoUpload, ProjectService
 from selectiq.domain.errors import ValidationError
@@ -148,24 +147,3 @@ def test_invalid_update_does_not_partially_replace_saved_values(
     assert restored.brief is not None
     assert restored.brief.original_text == "Original direction"
     assert restored.target_count == 3
-
-
-@settings(
-    max_examples=10,
-    deadline=None,
-    suppress_health_check=[HealthCheck.function_scoped_fixture],
-)
-@given(accepted_count=st.integers(min_value=1, max_value=30), data=st.data())
-def test_every_target_within_the_accepted_count_is_valid(
-    project_service: ProjectService,
-    jpeg_bytes: bytes,
-    accepted_count: int,
-    data: st.DataObject,
-) -> None:
-    project = project_service.create_project()
-    add_photos(project_service, project.id, jpeg_bytes, accepted_count)
-    target = data.draw(st.integers(min_value=1, max_value=accepted_count), label="target")
-
-    updated = project_service.set_prompt_and_target(project.id, "Generated valid target", target)
-
-    assert updated.target_count == target

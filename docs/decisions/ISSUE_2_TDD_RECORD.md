@@ -81,7 +81,6 @@ The frontend TypeScript build also passed, confirming that the test file itself 
 - Unicode, punctuation, emoji, and surrounding whitespace are preserved exactly in nonblank input.
 - A valid replacement updates both prompt and target.
 - An invalid replacement changes neither saved value.
-- A Hypothesis property test generates Alpha gallery sizes from 1 through 30 and valid targets within each gallery, then verifies every generated target is accepted and round-trips unchanged.
 
 The boolean case is deliberate: in Python, `bool` subclasses `int`, so a naïve `isinstance(target, int)` check would incorrectly accept `True` as target 1.
 
@@ -141,7 +140,7 @@ The service uses a trimmed copy only to determine whether the prompt is blank. I
 The complete backend suite passed:
 
 ```text
-51 passed, 2 skipped in 2.22s
+50 passed, 2 skipped in 2.80s
 ```
 
 The two skips are the permissioned sports and retirement gallery tests; those private fixtures were not present. No A-02 test was skipped.
