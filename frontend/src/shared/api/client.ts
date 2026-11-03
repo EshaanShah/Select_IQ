@@ -1,4 +1,9 @@
-import type { ImportResult, ProjectCreated, ProjectStatus } from "../types";
+import type {
+  ImportResult,
+  ProjectCreated,
+  ProjectStatus,
+  PromptTargetResult,
+} from "../types";
 
 const apiBaseUrl = import.meta.env.VITE_SELECTIQ_API_URL ?? "http://localhost:8000";
 
@@ -33,5 +38,17 @@ export function uploadPhotos(projectId: string, files: File[]): Promise<ImportRe
   return apiRequest<ImportResult>(`/projects/${projectId}/photos`, {
     method: "POST",
     body: formData,
+  });
+}
+
+export function savePromptAndTarget(
+  projectId: string,
+  prompt: string,
+  target: number,
+): Promise<PromptTargetResult> {
+  return apiRequest<PromptTargetResult>(`/projects/${projectId}/brief`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, target }),
   });
 }

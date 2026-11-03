@@ -3,7 +3,7 @@
 **Branch:** `issue-2-prompt-target`  
 **Red-test commit:** `753b129`  
 **Story:** A-02 — Prompt and target  
-**Status:** Red phase complete; production implementation not started
+**Status:** Green; A-02 implementation complete
 
 ## Why this record exists
 
@@ -64,7 +64,7 @@ Tests       4 failed | 2 passed (6)
 
 The two pre-existing gallery-import tests passed. All four new A-02 frontend tests failed because the `Creative brief` control does not exist yet. This is the intended first failure and shows that the new tests detect missing A-02 behavior without regressing A-01.
 
-The frontend TypeScript build also passed, confirming that the test file itself is type-correct. Backend tests were syntax-checked but not executed because the Python test dependencies were not installed in the working environment. Their executable red run must be recorded before production implementation begins.
+The frontend TypeScript build also passed, confirming that the test file itself was type-correct. Backend tests were syntax-checked during the red phase; their dependencies were installed into an isolated temporary environment for the green phase.
 
 ## Tests added
 
@@ -81,6 +81,7 @@ The frontend TypeScript build also passed, confirming that the test file itself 
 - Unicode, punctuation, emoji, and surrounding whitespace are preserved exactly in nonblank input.
 - A valid replacement updates both prompt and target.
 - An invalid replacement changes neither saved value.
+- A Hypothesis property test generates Alpha gallery sizes from 1 through 30 and valid targets within each gallery, then verifies every generated target is accepted and round-trips unchanged.
 
 The boolean case is deliberate: in Python, `bool` subclasses `int`, so a naïve `isinstance(target, int)` check would incorrectly accept `True` as target 1.
 
@@ -119,9 +120,9 @@ These tests do not need a real participant gallery.
 
 Real permissioned photographs become necessary for A-03 model smoke tests, A-04 genuine AI behavior, ranking evaluation, the end-to-end demo, and participant validation. Using a real gallery for A-02 would make the suite slower and less deterministic without improving coverage of prompt/target rules.
 
-## Planned minimum implementation
+## Implemented solution
 
-The tests are intended to drive this sequence:
+The tests drove this implementation:
 
 1. Add nullable prompt and target fields to the project persistence model through a new Alembic migration.
 2. Reconstruct `CreativeBrief` and `target_count` when loading a project.
@@ -133,7 +134,34 @@ The tests are intended to drive this sequence:
 8. Add accessible prompt/target controls, restoration, validation, and save feedback.
 9. Run the focused tests until green, then run the complete regression suite.
 
-The service will use a trimmed copy only to determine whether the prompt is blank. It will store the original nonblank text so Unicode and user formatting are not silently changed.
+The service uses a trimmed copy only to determine whether the prompt is blank. It stores the original nonblank text so Unicode and user formatting are not silently changed. The API uses a strict integer contract, and the repository writes prompt and target in one transaction.
+
+## Green-phase evidence
+
+The complete backend suite passed:
+
+```text
+51 passed, 2 skipped in 2.22s
+```
+
+The two skips are the permissioned sports and retirement gallery tests; those private fixtures were not present. No A-02 test was skipped.
+
+The complete frontend component suite passed:
+
+```text
+Test Files  1 passed (1)
+Tests       6 passed (6)
+```
+
+The TypeScript/Vite production build completed successfully. The Alembic migration was also exercised in both directions against a temporary SQLite database: upgrade added `brief_text` and `target_count`, and downgrade removed both columns.
+
+Focused backend line coverage for the three modules changed by A-02 was 97% overall:
+
+| Module | Line coverage |
+|---|---:|
+| `api/routes/projects.py` | 96% |
+| `application/project_service.py` | 99% |
+| `infrastructure/project_repository.py` | 97% |
 
 ## Likely mutation tests
 
@@ -177,19 +205,19 @@ The tests and contracts were committed before production behavior. The red front
 ## Git history and isolation
 
 - The test work was first committed as `753b129 Add red tests for A-02 prompt and target`.
-- The feature branch was renamed to `issue-2-prompt-target`, matching the Issue 1 naming style without a `codex/` prefix.
+- The feature branch was renamed to `issue-2-prompt-target`, matching the Issue 1 naming style.
 - `main` was checked directly and remained clean and aligned with `origin/main` before continuing feature work.
 - Generated `frontend/node_modules` and `frontend/dist` content is ignored and was not committed.
 
 ## Green-phase checklist
 
-- [ ] Capture the backend red-test output after installing test dependencies.
-- [ ] Add migration and persistence behavior.
-- [ ] Implement service validation and atomic update.
-- [ ] Implement API contract.
-- [ ] Implement frontend workflow.
-- [ ] Run focused backend and frontend tests.
-- [ ] Run the complete regression suite.
-- [ ] Add coverage numbers.
+- [x] Preserve the committed frontend red-test evidence.
+- [x] Add migration and persistence behavior.
+- [x] Implement service validation and atomic update.
+- [x] Implement API contract.
+- [x] Implement frontend workflow.
+- [x] Run focused backend and frontend tests.
+- [x] Run the complete regression suite.
+- [x] Add focused backend coverage numbers (97%).
 - [ ] Run targeted mutation testing.
-- [ ] Record green commit and final test evidence in this document.
+- [x] Record green-phase test evidence in this document.

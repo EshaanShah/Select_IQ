@@ -37,4 +37,13 @@ export type ProjectStatus = {
   acceptedCount: number;
   remainingCapacity: number;
   failures: ImportFailure[];
+  prompt: string | null;
+  target: number | null;
+};
+
+export type PromptTargetResult = {
+  projectId: ProjectId;
+  prompt: string;
+  target: number;
+  acceptedCount: number;
 };
