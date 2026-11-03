@@ -1,8 +1,11 @@
 # Issue 2 Engineering Record — Prompt and Target
 
-**Branch:** `issue-2-prompt-target`  
-**Red-test commit:** `753b129`  
-**Story:** A-02 — Prompt and target  
+**Branch:** `issue-2-prompt-target`
+
+**Red-test commit:** `753b129`
+
+**Story:** A-02 — Prompt and target
+
 **Status:** Green; A-02 implementation complete
 
 ## Why this record exists
