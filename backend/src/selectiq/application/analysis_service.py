@@ -38,9 +38,16 @@ class AnalysisService:
         photos = self.repository.list_photos(project_id)
         if not photos:
             raise ValidationError("Upload at least one photograph before starting analysis.")
-        if all(self.runner.extractor.is_current(photo) for photo in photos):
+        if project.brief is None:
+            raise ValidationError("Save a creative brief before starting analysis.")
+        prompt = project.brief.original_text
+        if all(
+            self.runner.extractor.is_current(photo)
+            and self.runner.extractor.is_prompt_current(photo, prompt)
+            for photo in photos
+        ):
             return "completed", False
-        return self.runner.submit(project_id), True
+        return self.runner.submit(project_id, prompt), True
 
     def status(self, project_id: str) -> AnalysisStatus:
         project = self.repository.get(project_id)

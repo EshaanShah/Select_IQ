@@ -1,8 +1,9 @@
+import hashlib
 from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictInt
 
 from selectiq.api.dependencies import get_analysis_service, get_project_service
 from selectiq.application.analysis_service import AnalysisService
@@ -54,6 +55,8 @@ class ProjectStatus(CamelModel):
     acceptedCount: int
     remainingCapacity: int
     failures: list[ImportFailureResponse]
+    prompt: str | None
+    target: int | None
     analysisStatus: str
     analysisTotal: int
     analysisCompleted: int
@@ -74,6 +77,18 @@ class AnalysisFailureResponse(CamelModel):
 class AnalysisStarted(CamelModel):
     projectId: str
     analysisStatus: str
+
+
+class PromptTargetRequest(CamelModel):
+    prompt: str
+    target: StrictInt
+
+
+class PromptTargetResponse(CamelModel):
+    projectId: str
+    prompt: str
+    target: int
+    acceptedCount: int
 
 
 def project_service() -> ProjectService:
@@ -128,33 +143,68 @@ def upload_photos(
     )
 
 
+@router.post("/{project_id}/brief", response_model=PromptTargetResponse)
+def save_prompt_and_target(
+    project_id: str,
+    request: PromptTargetRequest,
+    service: Annotated[ProjectService, Depends(project_service)],
+) -> PromptTargetResponse:
+    try:
+        project = service.set_prompt_and_target(project_id, request.prompt, request.target)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        ) from error
+    assert project.brief is not None and project.target_count is not None
+    return PromptTargetResponse(
+        projectId=project.id,
+        prompt=project.brief.original_text,
+        target=project.target_count,
+        acceptedCount=len(project.photos),
+    )
+
+
 @router.get("/{project_id}/status", response_model=ProjectStatus)
 def get_status(
     project_id: str, service: Annotated[ProjectService, Depends(project_service)]
 ) -> ProjectStatus:
     try:
-        accepted_count, failures = service.status(project_id)
+        project, failures = service.status(project_id)
     except ProjectNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    photos = service.repository.list_photos(project_id)
-    completed = [photo for photo in photos if photo.state is ProcessingState.COMPLETED]
-    failed = [photo for photo in photos if photo.state is ProcessingState.FAILED]
-    processing = [photo for photo in photos if photo.state is ProcessingState.PROCESSING]
+    completed = [photo for photo in project.photos if photo.state is ProcessingState.COMPLETED]
+    failed = [photo for photo in project.photos if photo.state is ProcessingState.FAILED]
+    processing = [photo for photo in project.photos if photo.state is ProcessingState.PROCESSING]
+    prompt_hash = (
+        hashlib.sha256(project.brief.original_text.encode("utf-8")).hexdigest()
+        if project.brief is not None
+        else None
+    )
+    prompt_current = bool(prompt_hash) and all(
+        (feature := service.repository.get_feature(photo.id)) is not None
+        and feature.prompt_hash == prompt_hash
+        and feature.brief_relevance is not None
+        for photo in completed
+    )
     if processing:
         analysis_status = "running"
-    elif photos and len(completed) == len(photos):
+    elif project.photos and len(completed) == len(project.photos) and prompt_current:
         analysis_status = "completed"
     elif completed and failed:
         analysis_status = "partial_failure"
-    elif photos and len(failed) == len(photos):
+    elif project.photos and len(failed) == len(project.photos):
         analysis_status = "failed"
     else:
         analysis_status = "idle"
     feature = next((service.repository.get_feature(photo.id) for photo in completed), None)
     return ProjectStatus(
         projectId=project_id,
-        acceptedCount=accepted_count,
-        remainingCapacity=max(service.max_gallery_size - accepted_count, 0),
+        acceptedCount=len(project.photos),
+        remainingCapacity=max(service.max_gallery_size - len(project.photos), 0),
+        prompt=project.brief.original_text if project.brief is not None else None,
+        target=project.target_count,
         failures=[
             ImportFailureResponse(
                 filename=failure.filename,
@@ -165,7 +215,7 @@ def get_status(
             for failure in failures
         ],
         analysisStatus=analysis_status,
-        analysisTotal=len(photos),
+        analysisTotal=len(project.photos),
         analysisCompleted=len(completed),
         analysisFailed=len(failed),
         analysisFailures=[

@@ -108,6 +108,16 @@ class FeatureExtractor:
             return False
         return self.cache.load(feature.embedding_path, feature.embedding_dimension) is not None
 
+    def is_prompt_current(self, photo: Photograph, prompt: str) -> bool:
+        feature = self.repository.get_feature(photo.id)
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        return bool(
+            feature
+            and feature.model_fingerprint == self.encoder.fingerprint
+            and feature.prompt_hash == prompt_hash
+            and feature.brief_relevance is not None
+        )
+
     def _validate_batch(self, values: np.ndarray, count: int) -> np.ndarray:
         matrix = np.asarray(values, dtype=np.float32)
         if matrix.ndim != 2 or matrix.shape[0] != count or matrix.shape[1] == 0:

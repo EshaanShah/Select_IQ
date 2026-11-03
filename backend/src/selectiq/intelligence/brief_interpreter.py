@@ -1,2 +1,2 @@
-"""Interpret creative briefs into validated contextual evidence for US-02."""
+"""Interpret creative briefs into validated AI guidance for the future A-04 story."""
 

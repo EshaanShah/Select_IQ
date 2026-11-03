@@ -37,6 +37,8 @@ export type ProjectStatus = {
   acceptedCount: number;
   remainingCapacity: number;
   failures: ImportFailure[];
+  prompt: string | null;
+  target: number | null;
   analysisStatus: AnalysisStatus;
   analysisTotal: number;
   analysisCompleted: number;
@@ -47,7 +49,13 @@ export type ProjectStatus = {
   embeddingDimension?: number | null;
 };
 
-export type AnalysisStatus = "idle" | "queued" | "running" | "completed" | "partial_failure" | "failed";
+export type AnalysisStatus =
+  | "idle"
+  | "queued"
+  | "running"
+  | "completed"
+  | "partial_failure"
+  | "failed";
 
 export type AnalysisFailure = {
   photoId: PhotoId;
@@ -59,4 +67,11 @@ export type AnalysisFailure = {
 export type AnalysisStarted = {
   projectId: ProjectId;
   analysisStatus: AnalysisStatus;
+};
+
+export type PromptTargetResult = {
+  projectId: ProjectId;
+  prompt: string;
+  target: number;
+  acceptedCount: number;
 };

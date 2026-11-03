@@ -1,7 +1,18 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 
-import { createProject, getProjectStatus, startAnalysis, uploadPhotos } from "../shared/api/client";
-import type { AnalysisFailure, AnalysisStatus, ImportFailure, ProjectStatus } from "../shared/types";
+import {
+  createProject,
+  getProjectStatus,
+  savePromptAndTarget,
+  startAnalysis,
+  uploadPhotos,
+} from "../shared/api/client";
+import type {
+  AnalysisFailure,
+  AnalysisStatus,
+  ImportFailure,
+  ProjectStatus,
+} from "../shared/types";
 import "./app.css";
 
 const projectStorageKey = "selectiq.projectId";
@@ -19,6 +30,11 @@ export function App() {
   const [batchSummary, setBatchSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [target, setTarget] = useState("");
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [briefSaved, setBriefSaved] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [analysisCompleted, setAnalysisCompleted] = useState(0);
   const [analysisFailures, setAnalysisFailures] = useState<AnalysisFailure[]>([]);
@@ -27,8 +43,13 @@ export function App() {
   function applyStatus(status: ProjectStatus) {
     setAcceptedCount(status.acceptedCount);
     setFailures(status.failures);
+    setPrompt(status.prompt ?? "");
+    setTarget(status.target?.toString() ?? "");
+    setBriefSaved(Boolean(status.prompt && status.target));
     setAnalysisStatus((current) =>
-      status.analysisStatus === "idle" && current === "queued" ? current : (status.analysisStatus ?? "idle"),
+      status.analysisStatus === "idle" && current === "queued"
+        ? current
+        : (status.analysisStatus ?? "idle"),
     );
     setAnalysisCompleted(status.analysisCompleted ?? 0);
     setAnalysisFailures(status.analysisFailures ?? []);
@@ -68,7 +89,11 @@ export function App() {
           if (!cancelled) applyStatus(status);
         })
         .catch((reason) => {
-          if (!cancelled) setError(reason instanceof Error ? reason.message : "Analysis status could not be loaded.");
+          if (!cancelled) {
+            setError(
+              reason instanceof Error ? reason.message : "Analysis status could not be loaded.",
+            );
+          }
         });
     }, 1000);
     return () => {
@@ -110,8 +135,46 @@ export function App() {
     }
   }
 
+  async function submitPromptAndTarget() {
+    setBriefError(null);
+    setBriefSaved(false);
+    if (!prompt.trim()) {
+      setBriefError("Enter a creative brief; the brief cannot be blank.");
+      return;
+    }
+    if (!/^\d+$/.test(target)) {
+      setBriefError("Target must be a positive whole number.");
+      return;
+    }
+    const numericTarget = Number(target);
+    if (numericTarget < 1) {
+      setBriefError("Target must be at least 1.");
+      return;
+    }
+    if (numericTarget > acceptedCount) {
+      setBriefError(`Target cannot exceed the ${acceptedCount} accepted photos.`);
+      return;
+    }
+    if (!projectId) {
+      setBriefError("Create a project and upload photographs before saving your brief.");
+      return;
+    }
+    setBriefBusy(true);
+    try {
+      const result = await savePromptAndTarget(projectId, prompt, numericTarget);
+      setPrompt(result.prompt);
+      setTarget(result.target.toString());
+      setBriefSaved(true);
+      setAnalysisStatus("idle");
+    } catch (reason) {
+      setBriefError(reason instanceof Error ? reason.message : "The brief could not be saved.");
+    } finally {
+      setBriefBusy(false);
+    }
+  }
+
   async function analyzeGallery() {
-    if (!projectId) return;
+    if (!projectId || !briefSaved) return;
     setBusy(true);
     setError(null);
     try {
@@ -213,33 +276,113 @@ export function App() {
       )}
 
       {acceptedCount > 0 && (
-        <section className="analysis-card" aria-live="polite">
-          <div>
-            <h2>AI feature analysis</h2>
-            {analysisStatus === "idle" && <p>Generate visual embeddings before continuing.</p>}
-            {["queued", "running"].includes(analysisStatus) && (
-              <p>{analysisCompleted} of {acceptedCount} photographs analyzed…</p>
-            )}
-            {analysisStatus === "completed" && (
-              <p><strong>Your gallery is ready for the next step.</strong>{analysisModel ? ` ${analysisModel} completed the analysis.` : ""}</p>
-            )}
-            {["partial_failure", "failed"].includes(analysisStatus) && (
-              <p className="error" role="alert">Analysis failed for {analysisFailures.length} photograph(s). Review the details and retry.</p>
-            )}
-          </div>
-          {analysisStatus !== "completed" && !["queued", "running"].includes(analysisStatus) && (
-            <button className="submit" type="button" onClick={analyzeGallery} disabled={busy}>
-              {["partial_failure", "failed"].includes(analysisStatus) ? "Retry analysis" : "Analyze gallery"}
+        <>
+          <section className="ready" aria-live="polite">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>Gallery upload complete.</strong>
+              <p>Add more photographs or save the creative brief below.</p>
+            </div>
+          </section>
+
+          <section className="brief-card" aria-labelledby="brief-title">
+            <h2 id="brief-title">Describe your creative intent</h2>
+            <p className="brief-help">
+              Tell SelectIQ which story, mood, subjects, and moments should shape the collection.
+            </p>
+            <label className="field">
+              <span>Creative brief</span>
+              <textarea
+                value={prompt}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  setBriefSaved(false);
+                  setAnalysisStatus("idle");
+                }}
+                disabled={briefBusy}
+                rows={5}
+              />
+            </label>
+            <div className="field target-field">
+              <label htmlFor="target-count">Target number of photographs</label>
+              <input
+                id="target-count"
+                type="number"
+                min="1"
+                max={acceptedCount}
+                step="1"
+                value={target}
+                onChange={(event) => {
+                  setTarget(event.target.value);
+                  setBriefSaved(false);
+                }}
+                disabled={briefBusy}
+              />
+              <small>Choose between 1 and {acceptedCount}.</small>
+            </div>
+            <button
+              className="submit"
+              type="button"
+              onClick={submitPromptAndTarget}
+              disabled={briefBusy}
+            >
+              {briefBusy ? "Saving…" : "Save brief and target"}
             </button>
-          )}
-          {analysisFailures.length > 0 && (
-            <ul className="analysis-failures">
-              {analysisFailures.map((failure) => (
-                <li key={failure.photoId}><strong>{failure.originalFilename}</strong><span>{failure.message}</span></li>
-              ))}
-            </ul>
-          )}
-        </section>
+            {briefSaved && <p className="success">Brief and target saved.</p>}
+            {briefError && <p className="error" role="alert">{briefError}</p>}
+          </section>
+
+          <section className="analysis-card" aria-live="polite">
+            <div>
+              <h2>AI feature analysis</h2>
+              {analysisStatus === "idle" && (
+                <p>
+                  {briefSaved
+                    ? "Generate image and prompt embeddings before continuing."
+                    : "Save the creative brief before starting analysis."}
+                </p>
+              )}
+              {["queued", "running"].includes(analysisStatus) && (
+                <p>{analysisCompleted} of {acceptedCount} photographs analyzed…</p>
+              )}
+              {analysisStatus === "completed" && (
+                <p>
+                  <strong>Your gallery is ready for the next step.</strong>
+                  {analysisModel ? ` ${analysisModel} completed the analysis.` : ""}
+                </p>
+              )}
+              {["partial_failure", "failed"].includes(analysisStatus) && (
+                <p className="error" role="alert">
+                  Analysis failed for {analysisFailures.length} photograph(s). Review the details
+                  and retry.
+                </p>
+              )}
+            </div>
+            {analysisStatus !== "completed" &&
+              !["queued", "running"].includes(analysisStatus) && (
+                <button
+                  className="submit"
+                  type="button"
+                  onClick={analyzeGallery}
+                  disabled={busy || !briefSaved}
+                >
+                  {["partial_failure", "failed"].includes(analysisStatus)
+                    ? "Retry analysis"
+                    : "Analyze gallery"}
+                </button>
+              )}
+            {analysisFailures.length > 0 && (
+              <ul className="analysis-failures">
+                {analysisFailures.map((failure) => (
+                  <li key={failure.photoId}>
+                    <strong>{failure.originalFilename}</strong>
+                    <span>{failure.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
       )}
     </main>
   );

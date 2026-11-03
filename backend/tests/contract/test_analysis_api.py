@@ -29,10 +29,16 @@ def test_analysis_endpoint_reports_completion_and_cache_reuse(
     app.dependency_overrides[analysis_service_dependency] = lambda: service
     client = TestClient(app)
     project_id = client.post("/projects").json()["projectId"]
-    client.post(
+    uploaded = client.post(
         f"/projects/{project_id}/photos",
         files=[("files", ("photo.jpg", BytesIO(jpeg_bytes), "image/jpeg"))],
     )
+    photo_id = uploaded.json()["accepted"][0]["photoId"]
+    brief = client.post(
+        f"/projects/{project_id}/brief",
+        json={"prompt": "Prioritize warm candid moments.", "target": 1},
+    )
+    assert brief.status_code == 200
 
     started = client.post(f"/projects/{project_id}/analyze")
     assert started.status_code == 202
@@ -44,11 +50,15 @@ def test_analysis_endpoint_reports_completion_and_cache_reuse(
     assert status["analysisCompleted"] == 1
     assert status["analysisFailed"] == 0
     assert status["analysisModel"] == "deterministic-test"
+    feature = project_service.repository.get_feature(photo_id)
+    assert feature is not None and feature.prompt_hash and feature.brief_relevance is not None
     assert client.post(f"/projects/{project_id}/analyze").status_code == 200
     runner.shutdown()
 
 
-def test_analysis_requires_a_known_nonempty_project(project_service: ProjectService, tmp_path) -> None:
+def test_analysis_requires_a_known_nonempty_project(
+    project_service: ProjectService, jpeg_bytes: bytes, tmp_path
+) -> None:
     runner = GalleryAnalysisRunner(
         project_service.repository,
         FeatureExtractor(
@@ -66,4 +76,11 @@ def test_analysis_requires_a_known_nonempty_project(project_service: ProjectServ
     assert client.post("/projects/not-a-project/analyze").status_code == 404
     project_id = client.post("/projects").json()["projectId"]
     assert client.post(f"/projects/{project_id}/analyze").status_code == 409
+    client.post(
+        f"/projects/{project_id}/photos",
+        files=[("files", ("photo.jpg", BytesIO(jpeg_bytes), "image/jpeg"))],
+    )
+    missing_brief = client.post(f"/projects/{project_id}/analyze")
+    assert missing_brief.status_code == 409
+    assert "brief" in missing_brief.json()["detail"].lower()
     runner.shutdown()
