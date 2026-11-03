@@ -1553,6 +1553,8 @@ The Alpha remains a modular monolith. It does not require authentication package
 
 # 25. Implementation Phases
 
+> **Beta/research roadmap:** The 300-image and 80-selection milestones in this section are not Alpha acceptance criteria. Alpha delivery is governed by [ALPHA_SCOPE.md](ALPHA_SCOPE.md) and the A-01–A-10 stories.
+
 ## Phase 0 — Environment validation
 
 **Goal:** Prove that the development machine can execute the required image encoder.

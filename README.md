@@ -20,7 +20,7 @@ SelectIQ is a local, AI-assisted photo-culling research prototype. The Alpha lea
 
 ## Development status
 
-A-01 gallery ingestion is in progress. The authoritative Alpha is a 10–30-photo local vertical slice; the 300-photo research workflow is Beta/later scope.
+A-01 gallery ingestion is complete. The remaining Alpha work follows A-02 through A-10 for a 10–30-photo local vertical slice; the 300-photo research workflow is Beta/later scope.
 
 ## Local setup
 
