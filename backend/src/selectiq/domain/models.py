@@ -16,6 +16,20 @@ class Photograph:
     height: int
     byte_size: int
     state: ProcessingState = ProcessingState.PENDING
+    analysis_error_code: str | None = None
+    analysis_error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoFeature:
+    photo_id: str
+    model_name: str
+    checkpoint: str
+    model_fingerprint: str
+    embedding_dimension: int
+    embedding_path: Path
+    prompt_hash: str | None = None
+    brief_relevance: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

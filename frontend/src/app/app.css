@@ -14,7 +14,7 @@ button, input { font: inherit; }
 .eyebrow { color: #357455; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
 h1 { margin: 8px 0 12px; font-family: Georgia, serif; font-size: clamp(2.7rem, 8vw, 4.8rem); font-weight: 500; line-height: 0.98; }
 .lede { color: #59635d; font-size: 1.08rem; line-height: 1.65; }
-.upload-card, .failures, .ready { border: 1px solid #d8d4c8; border-radius: 18px; background: #fffdf8; box-shadow: 0 16px 45px rgb(40 48 42 / 8%); }
+.upload-card, .failures, .ready, .analysis-card { border: 1px solid #d8d4c8; border-radius: 18px; background: #fffdf8; box-shadow: 0 16px 45px rgb(40 48 42 / 8%); }
 .upload-card { padding: 28px; }
 .card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 h2 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.55rem; font-weight: 500; }
@@ -40,6 +40,11 @@ h2 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.55rem; font-weig
 .failures li span { color: #6f554e; font-size: 0.9rem; }
 .ready { display: flex; gap: 16px; align-items: center; margin-top: 20px; padding: 20px 24px; }
 .ready > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #dceee2; color: #23613e; font-weight: 900; }
+.analysis-card { display: grid; gap: 18px; margin-top: 20px; padding: 24px 28px; }
+.analysis-card p { margin: 4px 0 0; color: #59635d; }
+.analysis-failures { margin: 0; padding: 0; list-style: none; }
+.analysis-failures li { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid #e7e2d8; }
+.analysis-failures span { color: #6f554e; font-size: 0.9rem; }
 
 @media (max-width: 600px) {
   .shell { padding: 40px 0; }

@@ -39,19 +39,58 @@ describe("gallery import", () => {
     await waitFor(() => expect(screen.getByLabelText("1 photos accepted")).toBeInTheDocument());
     expect(screen.getByText("1 accepted, 1 rejected in this upload.")).toBeInTheDocument();
     expect(screen.getByText("broken.jpg")).toBeInTheDocument();
-    expect(screen.getByText(/ready for the next step/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze gallery" })).toBeInTheDocument();
   });
 
   it("restores an existing project's accepted count", async () => {
     window.localStorage.setItem("selectiq.projectId", "project-1");
     fetchMock.mockResolvedValueOnce(
-      response({ projectId: "project-1", acceptedCount: 14, remainingCapacity: 16, failures: [] }),
+      response({
+        projectId: "project-1",
+        acceptedCount: 14,
+        remainingCapacity: 16,
+        failures: [],
+        analysisStatus: "completed",
+        analysisTotal: 14,
+        analysisCompleted: 14,
+        analysisFailed: 0,
+        analysisFailures: [],
+        analysisModel: "ViT-B-32",
+      }),
     );
 
     render(<App />);
 
     await waitFor(() => expect(screen.getByLabelText("14 photos accepted")).toBeInTheDocument());
     expect(screen.getByText("16 spaces remaining")).toBeInTheDocument();
+    expect(screen.getByText(/ready for the next step/i)).toBeInTheDocument();
+  });
+
+  it("surfaces analysis failures and starts a retry", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          projectId: "project-1",
+          acceptedCount: 2,
+          remainingCapacity: 28,
+          failures: [],
+          analysisStatus: "partial_failure",
+          analysisTotal: 2,
+          analysisCompleted: 1,
+          analysisFailed: 1,
+          analysisFailures: [{ photoId: "photo-2", originalFilename: "broken.jpg", code: "inference_failed", message: "Inference failed." }],
+        }),
+      )
+      .mockResolvedValueOnce(response({ projectId: "project-1", analysisStatus: "queued" }, 202));
+
+    render(<App />);
+
+    const retry = await screen.findByRole("button", { name: "Retry analysis" });
+    expect(screen.getByText("broken.jpg")).toBeInTheDocument();
+    fireEvent.click(retry);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1][0]).toContain("/projects/project-1/analyze");
   });
 });
 

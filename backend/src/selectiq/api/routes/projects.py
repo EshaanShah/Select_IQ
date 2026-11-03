@@ -1,12 +1,14 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict
 
-from selectiq.api.dependencies import get_project_service
+from selectiq.api.dependencies import get_analysis_service, get_project_service
+from selectiq.application.analysis_service import AnalysisService
 from selectiq.application.project_service import PhotoUpload, ProjectService
-from selectiq.domain.errors import ProjectNotFoundError
+from selectiq.domain.enums import ProcessingState
+from selectiq.domain.errors import ProjectNotFoundError, ValidationError
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -52,10 +54,34 @@ class ProjectStatus(CamelModel):
     acceptedCount: int
     remainingCapacity: int
     failures: list[ImportFailureResponse]
+    analysisStatus: str
+    analysisTotal: int
+    analysisCompleted: int
+    analysisFailed: int
+    analysisFailures: list["AnalysisFailureResponse"]
+    analysisModel: str | None = None
+    analysisCheckpoint: str | None = None
+    embeddingDimension: int | None = None
+
+
+class AnalysisFailureResponse(CamelModel):
+    photoId: str
+    originalFilename: str
+    code: str
+    message: str
+
+
+class AnalysisStarted(CamelModel):
+    projectId: str
+    analysisStatus: str
 
 
 def project_service() -> ProjectService:
     return get_project_service()
+
+
+def analysis_service() -> AnalysisService:
+    return get_analysis_service()
 
 
 @router.post("", response_model=ProjectCreated, status_code=status.HTTP_201_CREATED)
@@ -110,6 +136,21 @@ def get_status(
         accepted_count, failures = service.status(project_id)
     except ProjectNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    photos = service.repository.list_photos(project_id)
+    completed = [photo for photo in photos if photo.state is ProcessingState.COMPLETED]
+    failed = [photo for photo in photos if photo.state is ProcessingState.FAILED]
+    processing = [photo for photo in photos if photo.state is ProcessingState.PROCESSING]
+    if processing:
+        analysis_status = "running"
+    elif photos and len(completed) == len(photos):
+        analysis_status = "completed"
+    elif completed and failed:
+        analysis_status = "partial_failure"
+    elif photos and len(failed) == len(photos):
+        analysis_status = "failed"
+    else:
+        analysis_status = "idle"
+    feature = next((service.repository.get_feature(photo.id) for photo in completed), None)
     return ProjectStatus(
         projectId=project_id,
         acceptedCount=accepted_count,
@@ -123,4 +164,36 @@ def get_status(
             )
             for failure in failures
         ],
+        analysisStatus=analysis_status,
+        analysisTotal=len(photos),
+        analysisCompleted=len(completed),
+        analysisFailed=len(failed),
+        analysisFailures=[
+            AnalysisFailureResponse(
+                photoId=photo.id,
+                originalFilename=photo.original_filename,
+                code=photo.analysis_error_code or "analysis_failed",
+                message=photo.analysis_error_message or "Analysis failed.",
+            )
+            for photo in failed
+        ],
+        analysisModel=feature.model_name if feature else None,
+        analysisCheckpoint=feature.checkpoint if feature else None,
+        embeddingDimension=feature.embedding_dimension if feature else None,
     )
+
+
+@router.post("/{project_id}/analyze", response_model=AnalysisStarted)
+def analyze_project(
+    project_id: str,
+    service: Annotated[AnalysisService, Depends(analysis_service)],
+    response: Response,
+) -> AnalysisStarted:
+    try:
+        analysis_status, queued = service.start(project_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    response.status_code = status.HTTP_202_ACCEPTED if queued else status.HTTP_200_OK
+    return AnalysisStarted(projectId=project_id, analysisStatus=analysis_status)
