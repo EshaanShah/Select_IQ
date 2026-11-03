@@ -14,7 +14,6 @@ dependencies = [
   "opencv-python-headless>=4.10,<5",
   "open-clip-torch>=2.29,<3",
   "pillow>=11,<12",
-  "psycopg[binary]>=3.2,<4",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<1",

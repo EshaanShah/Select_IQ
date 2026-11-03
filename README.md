@@ -4,6 +4,7 @@ SelectIQ is a local, AI-assisted photo-culling research prototype. The Alpha lea
 
 ## Alpha documentation
 
+- [Authoritative Alpha scope](ALPHA_SCOPE.md)
 - [Product requirements](SelectIQ_PRD.md)
 - [Technical design](SelectIQ_TDD.md)
 - [Finalized user stories](SelectIQ_User_Stories.md)
@@ -15,11 +16,11 @@ SelectIQ is a local, AI-assisted photo-culling research prototype. The Alpha lea
 - `backend/`: FastAPI entry point, domain modules, intelligence boundaries, and Python tests.
 - `tests/`: cross-application end-to-end tests and sports/retirement fixture manifests.
 - `scripts/`: local development, test, benchmark, and comparison-simulation commands.
-- `var/`: ignored local projects, model cache, and exports; PostgreSQL stores structured state.
+- `var/`: ignored local projects, model cache, exports, and SQLite state.
 
 ## Development status
 
-US-01 gallery ingestion is implemented with PostgreSQL-backed project metadata, safe local JPEG copies, partial-success validation, and a React upload workflow. Remaining stories continue from the documented scaffold.
+A-01 gallery ingestion is in progress. The authoritative Alpha is a 10–30-photo local vertical slice; the 300-photo research workflow is Beta/later scope.
 
 ## Local setup
 
@@ -31,7 +32,6 @@ python3.12 -m venv backend/.venv
 source backend/.venv/bin/activate
 python -m pip install -e 'backend[dev]'
 npm --prefix frontend install
-docker compose up -d --wait postgres
 python3 -m alembic -c backend/alembic.ini upgrade head
 ```
 

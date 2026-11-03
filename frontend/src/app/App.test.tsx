@@ -45,13 +45,13 @@ describe("gallery import", () => {
   it("restores an existing project's accepted count", async () => {
     window.localStorage.setItem("selectiq.projectId", "project-1");
     fetchMock.mockResolvedValueOnce(
-      response({ projectId: "project-1", acceptedCount: 14, remainingCapacity: 286, failures: [] }),
+      response({ projectId: "project-1", acceptedCount: 14, remainingCapacity: 16, failures: [] }),
     );
 
     render(<App />);
 
     await waitFor(() => expect(screen.getByLabelText("14 photos accepted")).toBeInTheDocument());
-    expect(screen.getByText("286 spaces remaining")).toBeInTheDocument();
+    expect(screen.getByText("16 spaces remaining")).toBeInTheDocument();
   });
 });
 

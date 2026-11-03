@@ -28,7 +28,7 @@ def test_project_upload_contract(project_service: ProjectService, jpeg_bytes: by
     assert "working_path" not in response.text
     status = client.get(f"/projects/{project_id}/status")
     assert status.json()["acceptedCount"] == 1
-    assert status.json()["remainingCapacity"] == 299
+    assert status.json()["remainingCapacity"] == 29
 
 
 def test_unknown_project_and_missing_files_are_reported(project_service: ProjectService) -> None:
