@@ -9,3 +9,11 @@ class ValidationError(SelectIQError):
 class ProjectNotFoundError(SelectIQError):
     """Raised when a project ID does not belong to a stored project."""
 
+
+class ImportValidationError(ValidationError):
+    """A single uploaded file failed an ingestion rule."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+

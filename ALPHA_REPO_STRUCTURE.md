@@ -97,7 +97,7 @@ Select_IQ/
 │   ├── projects/
 │   ├── cache/
 │   ├── exports/
-│   └── selectiq.sqlite3
+│   └── (structured state lives in local PostgreSQL)
 │
 ├── docs/
 │   ├── evaluation/
@@ -141,7 +141,7 @@ The API validates requests, invokes application services, and returns typed resp
 
 ## Domain
 
-`domain/` contains the stable language of the product: project, photograph, creative brief, comparison, recommendation, uncertainty reason, selection state, and feedback. Domain objects must not import FastAPI, React, SQLite, OpenCV, or a specific AI provider.
+`domain/` contains the stable language of the product: project, photograph, creative brief, comparison, recommendation, uncertainty reason, selection state, and feedback. Domain objects must not import FastAPI, React, PostgreSQL, OpenCV, or a specific AI provider.
 
 ## Application services
 
@@ -169,7 +169,7 @@ Application services coordinate complete use cases. They depend on domain types 
 Infrastructure isolates replaceable technical details.
 
 - `image_store.py`: local project folders, thumbnails, and source-file safety.
-- `project_repository.py`: SQLite persistence for project state, comparisons, proposals, removals, exports, and feedback.
+- `project_repository.py`: PostgreSQL persistence for project state, comparisons, proposals, removals, exports, and feedback.
 - `model_adapters.py`: pretrained encoder and optional multimodal provider interfaces.
 - `settings.py`: environment-driven paths, limits, model choices, and feature flags.
 
@@ -209,7 +209,7 @@ backend/tests/integration/
 └── test_feedback_flow.py
 ```
 
-These tests exercise SQLite, the local image store, application services, and controlled fake model adapters together.
+These tests exercise an isolated PostgreSQL database, the local image store, application services, and controlled fake model adapters together.
 
 ## API contract tests
 
@@ -277,9 +277,9 @@ The entire `var/` directory is ignored by Git.
 - `var/projects/`: uploaded project copies and thumbnails.
 - `var/cache/`: embeddings, metrics, and similarity artifacts.
 - `var/exports/`: generated filename lists.
-- `var/selectiq.sqlite3`: local Alpha state.
+- PostgreSQL: local Alpha structured state, started through Docker Compose.
 
-The application must never modify the photographer's source files. Uploaded working copies, generated thumbnails, embeddings, exports, and the SQLite database are disposable local artifacts.
+The application must never modify the photographer's source files. Uploaded working copies, generated thumbnails, embeddings, exports, and the local PostgreSQL data are disposable development artifacts.
 
 ---
 
