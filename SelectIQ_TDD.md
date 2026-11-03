@@ -154,7 +154,7 @@ Eventually, these steps can be wrapped in a single developer startup script.
 | Styling | Tailwind CSS | Rapid, consistent interface development |
 | Backend | Python + FastAPI | Strong integration with ML tooling |
 | Data validation | Pydantic | Typed API contracts and output validation |
-| Session database | SQLite | Simple local persistence without a database server |
+| Session database | PostgreSQL | Transactional persistence and row locking for concurrent imports |
 | File storage | Local filesystem | Avoid cloud storage cost |
 | Image decoding | Pillow | JPEG loading, orientation, resizing |
 | Image metrics | OpenCV + NumPy | Exposure, sharpness, contrast |
@@ -173,11 +173,9 @@ For a local research prototype, we do not need server-side rendering, public SEO
 
 Vite provides a simpler development environment for the required upload, comparison, and gallery screens.
 
-### Why SQLite instead of PostgreSQL?
+### Why PostgreSQL?
 
-Only a few galleries will be tested, and the application runs on one machine.
-
-SQLite can store all the necessary project metadata, comparisons, scores, and selections.
+PostgreSQL provides durable project metadata, comparisons, scores, and selections while supporting transactional capacity enforcement for concurrent uploads. Docker Compose keeps the local setup reproducible.
 
 The image files and embeddings remain on disk.
 
@@ -1087,7 +1085,7 @@ This fallback is a degraded mode, not equivalent evidence that the full generati
 
 ## 16.1 Storage approach
 
-SQLite will store project metadata and structured decisions.
+PostgreSQL will store project metadata and structured decisions.
 
 Local directories will hold:
 
@@ -1239,7 +1237,7 @@ Use a separate Python worker process that accepts queued job records.
 
 The database tracks job state.
 
-The initial MVP can use SQLite-backed job coordination or a similarly simple local mechanism.
+The initial MVP can use PostgreSQL-backed job coordination or a similarly simple local mechanism.
 
 ## 18.3 Job lifecycle
 
@@ -1529,7 +1527,7 @@ Select_IQ/
 │   │   ├── domain/           # Provider-independent product types
 │   │   ├── application/      # Use-case orchestration
 │   │   ├── intelligence/     # Brief, preference, curation, uncertainty
-│   │   ├── infrastructure/   # SQLite, filesystem, model adapters
+│   │   ├── infrastructure/   # PostgreSQL, filesystem, model adapters
 │   │   └── jobs/             # One local gallery-analysis runner
 │   └── tests/                # Unit, integration, and contract tests
 ├── tests/

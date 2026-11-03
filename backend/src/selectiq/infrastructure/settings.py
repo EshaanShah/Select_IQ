@@ -1,15 +1,27 @@
-from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-@dataclass(frozen=True, slots=True)
-class Settings:
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="SELECTIQ_", env_file=".env", extra="ignore"
+    )
+
     data_root: Path = Path("var")
     fixture_root: Path = Path("private-fixtures")
-    database_path: Path = Path("var/selectiq.sqlite3")
-    max_gallery_size: int = 300
+    database_url: str = "postgresql+psycopg://selectiq:selectiq@localhost:5432/selectiq"
+    max_gallery_size: int = Field(default=300, ge=1)
+    max_file_size_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
+    max_decoded_pixels: int = Field(default=60_000_000, ge=1)
     comparison_budget: int = 30
     model_adapter: str = "fake"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     def ensure_runtime_directories(self) -> None:
         self.data_root.mkdir(parents=True, exist_ok=True)

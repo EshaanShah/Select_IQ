@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from selectiq.domain.enums import ProcessingState, RecommendationGroup
@@ -10,7 +11,19 @@ class Photograph:
     project_id: str
     original_filename: str
     working_path: Path
+    content_hash: str
+    width: int
+    height: int
+    byte_size: int
     state: ProcessingState = ProcessingState.PENDING
+
+
+@dataclass(frozen=True, slots=True)
+class ImportFailure:
+    filename: str
+    code: str
+    message: str
+    created_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

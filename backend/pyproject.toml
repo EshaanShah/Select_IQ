@@ -8,14 +8,18 @@ version = "0.1.0"
 description = "Local SelectIQ Alpha API and photo-curation engine"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+  "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
   "numpy>=2,<3",
   "opencv-python-headless>=4.10,<5",
   "open-clip-torch>=2.29,<3",
   "pillow>=11,<12",
+  "psycopg[binary]>=3.2,<4",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
+  "python-multipart>=0.0.20,<1",
   "scikit-learn>=1.6,<2",
+  "sqlalchemy>=2.0,<3",
   "torch>=2.5,<3",
   "uvicorn[standard]>=0.34,<1"
 ]
