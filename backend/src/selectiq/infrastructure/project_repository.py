@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     Uuid,
     create_engine,
     func,
@@ -26,7 +27,7 @@ from sqlalchemy.orm import (
 )
 
 from selectiq.domain.enums import ProcessingState
-from selectiq.domain.models import ImportFailure, Photograph, Project
+from selectiq.domain.models import CreativeBrief, ImportFailure, Photograph, Project
 
 
 class ProjectRepository(Protocol):
@@ -35,6 +36,8 @@ class ProjectRepository(Protocol):
     def get(self, project_id: str) -> Project | None: ...
 
     def add_photo_if_capacity(self, photo: Photograph, capacity: int) -> bool: ...
+
+    def save_prompt_and_target(self, project_id: str, prompt: str, target: int) -> bool: ...
 
     def record_import_failure(self, project_id: str, failure: ImportFailure) -> None: ...
 
@@ -49,11 +52,19 @@ class Base(DeclarativeBase):
 
 class ProjectRow(Base):
     __tablename__ = "projects"
+    __table_args__ = (
+        CheckConstraint(
+            "target_count IS NULL OR target_count >= 1",
+            name="ck_projects_target_count_positive",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    brief_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     photos: Mapped[list["PhotoRow"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
@@ -128,7 +139,29 @@ class SqlProjectRepository:
             photo_rows = session.scalars(
                 select(PhotoRow).where(PhotoRow.project_id == project_uuid).order_by(PhotoRow.id)
             ).all()
-            return Project(id=str(row.id), photos=[self._to_photo(photo) for photo in photo_rows])
+            brief = (
+                CreativeBrief(project_id=str(row.id), original_text=row.brief_text)
+                if row.brief_text is not None
+                else None
+            )
+            return Project(
+                id=str(row.id),
+                target_count=row.target_count,
+                brief=brief,
+                photos=[self._to_photo(photo) for photo in photo_rows],
+            )
+
+    def save_prompt_and_target(self, project_id: str, prompt: str, target: int) -> bool:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return False
+        with self._write_lock, self.session_factory.begin() as session:
+            project = session.get(ProjectRow, project_uuid)
+            if project is None:
+                return False
+            project.brief_text = prompt
+            project.target_count = target
+            return True
 
     def add_photo_if_capacity(self, photo: Photograph, capacity: int) -> bool:
         project_uuid = UUID(photo.project_id)

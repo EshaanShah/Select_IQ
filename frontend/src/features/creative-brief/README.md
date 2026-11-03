@@ -1,4 +1,4 @@
 # Creative brief
 
-Owns the US-02 free-text intent experience, including contextual technical preferences.
+Owns the A-02 prompt-and-target experience and the future A-04 auditable AI interpretation.
 

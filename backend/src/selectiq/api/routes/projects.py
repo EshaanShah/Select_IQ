@@ -2,11 +2,11 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictInt
 
 from selectiq.api.dependencies import get_project_service
 from selectiq.application.project_service import PhotoUpload, ProjectService
-from selectiq.domain.errors import ProjectNotFoundError
+from selectiq.domain.errors import ProjectNotFoundError, ValidationError
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -52,6 +52,20 @@ class ProjectStatus(CamelModel):
     acceptedCount: int
     remainingCapacity: int
     failures: list[ImportFailureResponse]
+    prompt: str | None
+    target: int | None
+
+
+class PromptTargetRequest(CamelModel):
+    prompt: str
+    target: StrictInt
+
+
+class PromptTargetResponse(CamelModel):
+    projectId: str
+    prompt: str
+    target: int
+    acceptedCount: int
 
 
 def project_service() -> ProjectService:
@@ -102,18 +116,43 @@ def upload_photos(
     )
 
 
+@router.post("/{project_id}/brief", response_model=PromptTargetResponse)
+def save_prompt_and_target(
+    project_id: str,
+    request: PromptTargetRequest,
+    service: Annotated[ProjectService, Depends(project_service)],
+) -> PromptTargetResponse:
+    try:
+        project = service.set_prompt_and_target(project_id, request.prompt, request.target)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        ) from error
+    assert project.brief is not None and project.target_count is not None
+    return PromptTargetResponse(
+        projectId=project.id,
+        prompt=project.brief.original_text,
+        target=project.target_count,
+        acceptedCount=len(project.photos),
+    )
+
+
 @router.get("/{project_id}/status", response_model=ProjectStatus)
 def get_status(
     project_id: str, service: Annotated[ProjectService, Depends(project_service)]
 ) -> ProjectStatus:
     try:
-        accepted_count, failures = service.status(project_id)
+        project, failures = service.status(project_id)
     except ProjectNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     return ProjectStatus(
         projectId=project_id,
-        acceptedCount=accepted_count,
-        remainingCapacity=max(service.max_gallery_size - accepted_count, 0),
+        acceptedCount=len(project.photos),
+        remainingCapacity=max(service.max_gallery_size - len(project.photos), 0),
+        prompt=project.brief.original_text if project.brief is not None else None,
+        target=project.target_count,
         failures=[
             ImportFailureResponse(
                 filename=failure.filename,

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
 
-from selectiq.domain.errors import ImportValidationError, ProjectNotFoundError
+from selectiq.domain.errors import ImportValidationError, ProjectNotFoundError, ValidationError
 from selectiq.domain.models import ImportFailure, Photograph, Project
 from selectiq.infrastructure.image_store import ImageStore
 from selectiq.infrastructure.project_repository import ProjectRepository
@@ -44,6 +44,28 @@ class ProjectService:
         project = Project(id=str(uuid4()))
         self.repository.save(project)
         return project
+
+    def get_project(self, project_id: str) -> Project:
+        return self._require_project(project_id)
+
+    def set_prompt_and_target(self, project_id: str, prompt: str, target: int) -> Project:
+        project = self._require_project(project_id)
+        if not prompt.strip():
+            raise ValidationError("The prompt cannot be blank.")
+        if isinstance(target, bool) or not isinstance(target, int):
+            raise ValidationError("The target must be an integer.")
+        if target < 1:
+            raise ValidationError("The target must be positive and at least 1.")
+        accepted_count = len(project.photos)
+        if accepted_count == 0:
+            raise ValidationError("Upload at least one accepted photo before setting a target.")
+        if target > accepted_count:
+            raise ValidationError(
+                f"The target cannot exceed the {accepted_count} accepted photos."
+            )
+        if not self.repository.save_prompt_and_target(project_id, prompt, target):
+            raise ProjectNotFoundError(f"Project {project_id} was not found.")
+        return self._require_project(project_id)
 
     def import_photos(self, project_id: str, uploads: list[PhotoUpload]) -> ImportResult:
         self._require_project(project_id)
@@ -91,9 +113,9 @@ class ProjectService:
             accepted_count=self.repository.accepted_count(project_id),
         )
 
-    def status(self, project_id: str) -> tuple[int, list[ImportFailure]]:
-        self._require_project(project_id)
-        return self.repository.accepted_count(project_id), self.repository.import_failures(project_id)
+    def status(self, project_id: str) -> tuple[Project, list[ImportFailure]]:
+        project = self._require_project(project_id)
+        return project, self.repository.import_failures(project_id)
 
     def _require_project(self, project_id: str) -> Project:
         project = self.repository.get(project_id)

@@ -55,6 +55,142 @@ describe("gallery import", () => {
   });
 });
 
+describe("prompt and target", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+  });
+
+  it("saves a nonblank creative brief and valid target", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ projectId: "project-1", acceptedCount: 0 }, 201))
+      .mockResolvedValueOnce(
+        response({
+          accepted: Array.from({ length: 15 }, (_, index) => ({
+            photoId: `photo-${index}`,
+            originalFilename: `photo-${index}.jpg`,
+            width: 10,
+            height: 10,
+            byteSize: 10,
+            state: "pending",
+          })),
+          rejected: [],
+          batchAcceptedCount: 15,
+          batchRejectedCount: 0,
+          acceptedCount: 15,
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          projectId: "project-1",
+          prompt: "Prioritize candid emotion and energetic action.",
+          target: 5,
+          acceptedCount: 15,
+        }),
+      );
+    render(<App />);
+    const files = Array.from(
+      { length: 15 },
+      (_, index) => new File(["jpeg"], `photo-${index}.jpg`, { type: "image/jpeg" }),
+    );
+    fireEvent.change(screen.getByLabelText("Choose files"), { target: { files } });
+    fireEvent.click(screen.getByRole("button", { name: "Import selected photographs" }));
+    await waitFor(() => expect(screen.getByLabelText("15 photos accepted")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("Creative brief"), {
+      target: { value: "Prioritize candid emotion and energetic action." },
+    });
+    fireEvent.change(screen.getByLabelText("Target number of photographs"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save brief and target" }));
+
+    await waitFor(() => expect(screen.getByText(/brief and target saved/i)).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/projects/project-1/brief",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "Prioritize candid emotion and energetic action.",
+          target: 5,
+        }),
+      }),
+    );
+  });
+
+  it("restores the saved creative brief and target from the project session", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValueOnce(
+      response({
+        projectId: "project-1",
+        acceptedCount: 18,
+        remainingCapacity: 12,
+        failures: [],
+        prompt: "Preserve relationships and quiet reactions.",
+        target: 5,
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("Creative brief")).toHaveValue(
+      "Preserve relationships and quiet reactions.",
+    );
+    expect(screen.getByLabelText("Target number of photographs")).toHaveValue(5);
+  });
+
+  it("does not submit a blank prompt", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValueOnce(
+      response({
+        projectId: "project-1",
+        acceptedCount: 4,
+        remainingCapacity: 26,
+        failures: [],
+        prompt: null,
+        target: null,
+      }),
+    );
+    render(<App />);
+    await screen.findByLabelText("Creative brief");
+    fireEvent.change(screen.getByLabelText("Creative brief"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Target number of photographs"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save brief and target" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/brief.*blank|enter.*brief/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not submit a target larger than the accepted count", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValueOnce(
+      response({
+        projectId: "project-1",
+        acceptedCount: 4,
+        remainingCapacity: 26,
+        failures: [],
+        prompt: null,
+        target: null,
+      }),
+    );
+    render(<App />);
+    await screen.findByLabelText("Creative brief");
+    fireEvent.change(screen.getByLabelText("Creative brief"), {
+      target: { value: "Keep the strongest moments." },
+    });
+    fireEvent.change(screen.getByLabelText("Target number of photographs"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save brief and target" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/target.*4|accepted.*4/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 function response(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
