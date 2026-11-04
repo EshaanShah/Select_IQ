@@ -82,7 +82,10 @@ class AiStack:
 
     def recommendations(self, **provider_flags: bool) -> RecommendationService:
         return RecommendationService(
-            self.projects.repository, self.proposals, self.signal_provider(**provider_flags)
+            self.projects.repository,
+            self.proposals,
+            self.signal_provider(**provider_flags),
+            self.projects.image_store,
         )
 
     def with_reasoner(self, reasoner: BriefReasoner) -> "AiStack":
