@@ -178,3 +178,27 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+describe("pairwise feedback progress", () => {
+  beforeEach(() => fetchMock.mockReset());
+
+  it("reports saved-choice progress to its parent", async () => {
+    const onProgress = vi.fn();
+    fetchMock.mockResolvedValueOnce(response({ ...firstPair, sequence: 3 }));
+
+    render(<ComparisonPage projectId="project-1" onProgress={onProgress} />);
+
+    await waitFor(() => expect(onProgress).toHaveBeenCalledWith({ completed: 2, budget: 5, done: false }));
+  });
+
+  it("reports completion once the budget is spent", async () => {
+    const onProgress = vi.fn();
+    fetchMock.mockResolvedValueOnce(
+      response({ ...firstPair, sequence: 6, completed: true, photoA: null, photoB: null }),
+    );
+
+    render(<ComparisonPage projectId="project-1" onProgress={onProgress} />);
+
+    await waitFor(() => expect(onProgress).toHaveBeenCalledWith({ completed: 5, budget: 5, done: true }));
+  });
+});

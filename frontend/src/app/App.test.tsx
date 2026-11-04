@@ -443,3 +443,37 @@ describe("proposal step", () => {
     expect(screen.queryByRole("heading", { name: "Generate a proposal" })).not.toBeInTheDocument();
   });
 });
+
+describe("guided demo", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+  });
+
+  it("shows the six-step demo guide", () => {
+    render(<App />);
+    const steps = screen.getByRole("list", { name: "Demo steps" });
+    expect(steps).toHaveTextContent("Upload 10–30 JPEGs");
+    expect(steps).toHaveTextContent("Make 5 A/B choices");
+  });
+
+  it("keeps the saved project when the API is temporarily unreachable", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("cannot reach its local API");
+    expect(window.localStorage.getItem("selectiq.projectId")).toBe("project-1");
+  });
+
+  it("forgets a saved project that no longer exists", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValueOnce(response({ detail: "Project project-1 was not found." }, 404));
+
+    render(<App />);
+
+    await waitFor(() => expect(window.localStorage.getItem("selectiq.projectId")).toBeNull());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
