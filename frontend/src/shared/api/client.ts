@@ -122,3 +122,16 @@ export function exportUrl(projectId: string): string {
 export function thumbnailUrl(projectId: string, photoId: string): string {
   return `${apiBaseUrl}/projects/${projectId}/photos/${photoId}/thumbnail`;
 }
+
+type NextComparisonSummary = { sequence: number; budget: number; completed: boolean };
+
+export async function getComparisonProgress(
+  projectId: string,
+): Promise<{ completed: number; budget: number; done: boolean }> {
+  const next = await apiRequest<NextComparisonSummary>(`/projects/${projectId}/comparisons/next`);
+  return {
+    completed: next.completed ? next.budget : next.sequence - 1,
+    budget: next.budget,
+    done: next.completed,
+  };
+}

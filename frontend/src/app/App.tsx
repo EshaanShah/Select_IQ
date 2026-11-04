@@ -3,6 +3,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   ApiError,
   createProject,
+  getComparisonProgress,
   getProjectStatus,
   savePromptAndTarget,
   startAnalysis,
@@ -68,6 +69,21 @@ export function App() {
   useEffect(() => {
     folderInput.current?.setAttribute("webkitdirectory", "");
   }, []);
+
+  useEffect(() => {
+    if (!projectId || analysisStatus !== "completed" || comparisonsStarted) return;
+    let cancelled = false;
+    getComparisonProgress(projectId)
+      .then((progress) => {
+        if (!cancelled) setComparisonProgress(progress);
+      })
+      .catch(() => {
+        // Progress is advisory; the comparison step reports its own errors when opened.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisStatus, comparisonsStarted, projectId]);
 
   useEffect(() => {
     if (!projectId || projectId !== projectToRestore.current) return;
