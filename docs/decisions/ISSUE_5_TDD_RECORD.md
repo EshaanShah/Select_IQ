@@ -9,6 +9,39 @@ and stops at the configured comparison budget or when no unique pair remains.
 The selector is intentionally described as a deterministic, exposure-balanced baseline. It is
 not presented as adaptive preference learning; A-06 owns preference-score updates.
 
+## AI responsibility boundary
+
+A-05 does not call an LLM and should not be described as an AI model. Its responsibility is to
+collect reliable, project-scoped human preference labels: the photographer preferred one presented
+photo over another. Keeping this boundary narrow makes the interaction fast, deterministic, and
+independently testable.
+
+The stories divide AI responsibilities as follows:
+
+- A-03 uses a real pretrained vision-language model to create compatible image/text embeddings.
+- A-04 uses a genuine Groq-hosted generative model to interpret the creative brief into structured,
+  auditable guidance.
+- A-05 presents pairs and persists human winner/loser labels.
+- A-06 performs lightweight preference learning from A-03 embeddings and A-05 labels. It may fit a
+  regularized pairwise linear model or similarly simple ranker; it does not require an LLM call.
+
+For A-06, a user choice can be represented by the embedding difference between the selected and
+unselected photos. A learned weight vector then scores project photos using those visual features.
+This is genuine machine learning because model parameters are updated from user examples and can
+affect photos that were not directly compared. It should be described as a small project-specific
+preference model, not as an LLM or sophisticated active learning system.
+
+The eventual recommendation stage can combine distinct signals rather than asking one model to do
+everything:
+
+```text
+A-04 brief guidance + A-06 learned preference signal + controlled ranking criteria
+```
+
+This boundary also means an A-05 reviewer does not need a Groq API key. A key is required only to
+exercise the live A-04 generative-model path or the complete integrated demo. Secrets must remain in
+local environment configuration and must never be committed.
+
 ## Red phase
 
 The test specification was committed before production code:
