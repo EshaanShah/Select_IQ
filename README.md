@@ -9,6 +9,7 @@ SelectIQ is a local, AI-assisted photo-culling research prototype. The Alpha lea
 - [Technical design](SelectIQ_TDD.md)
 - [Finalized user stories](SelectIQ_User_Stories.md)
 - [Repository structure](ALPHA_REPO_STRUCTURE.md)
+- [Guided Alpha demo and test script](docs/demo/ALPHA_DEMO_GUIDE.md)
 
 ## Repository layout
 
@@ -20,7 +21,7 @@ SelectIQ is a local, AI-assisted photo-culling research prototype. The Alpha lea
 
 ## Development status
 
-A-01 through A-06 are complete. A-07 combines A-03 CLIP brief relevance, A-04 Groq guidance, and A-06 saved-choice preferences into an exactly-K proposal, and it labels the proposal by which real models produced it (see [the A-07 decision](docs/decisions/2026-11-04-a07-proposal-generation.md)). A-08 lets the photographer review the proposal as a thumbnail grid, remove photos with undo, and export a CSV of the remaining filenames. The remaining Alpha work follows A-09 and A-10 for a 10–30-photo local vertical slice; the 300-photo research workflow is Beta/later scope.
+A-01 through A-06 are complete. A-07 combines A-03 CLIP brief relevance, A-04 Groq guidance, and A-06 saved-choice preferences into an exactly-K proposal, and it labels the proposal by which real models produced it (see [the A-07 decision](docs/decisions/2026-11-04-a07-proposal-generation.md)). A-08 lets the photographer review the proposal as a thumbnail grid, remove photos with undo, and export a CSV of the remaining filenames. A-09 guides a participant through the complete flow and is covered by Playwright end-to-end tests (`npx playwright test`; see [the demo guide](docs/demo/ALPHA_DEMO_GUIDE.md)). The remaining Alpha work is A-10 for a 10–30-photo local vertical slice; the 300-photo research workflow is Beta/later scope.
 
 ## Local setup
 
