@@ -14,6 +14,14 @@ class ProposalNotFoundError(SelectIQError):
     """Raised when a project has no generated proposal yet."""
 
 
+class PhotoNotFoundError(SelectIQError):
+    """Raised when a photo ID does not belong to the requested project."""
+
+
+class PhotoNotInProposalError(SelectIQError):
+    """Raised when a review action targets a photo the current proposal never suggested."""
+
+
 class DuplicateComparisonError(ValidationError):
     """Raised when a project submits the same unordered photo pair twice."""
 

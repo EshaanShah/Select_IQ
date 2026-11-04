@@ -39,7 +39,9 @@ def test_generate_returns_the_proposal_contract(client: TestClient, project_id: 
     assert set(body["parameters"]["weights"]) == {"prompt_relevance", "ai_guidance", "preference"}
     assert [item["rank"] for item in body["recommendations"]] == [1, 2, 3, 4, 5]
     first = body["recommendations"][0]
-    assert set(first) == {"photoId", "originalFilename", "rank", "score", "contributions"}
+    assert set(first) == {"photoId", "originalFilename", "rank", "score", "contributions", "removed"}
+    assert first["removed"] is False
+    assert body["removedCount"] == 0
     assert set(first["contributions"]) == {"promptRelevance", "aiGuidance", "preference"}
     assert "working_path" not in response.text and "storage" not in response.text
 

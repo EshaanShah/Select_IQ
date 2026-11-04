@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import BinaryIO, Protocol
 from uuid import uuid4
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from selectiq.domain.errors import ImportValidationError
 
@@ -31,13 +31,14 @@ class ImageStore(Protocol):
 
     def discard(self, path: Path) -> None: ...
 
-    def create_thumbnail(self, project_id: str, photo_id: str) -> Path: ...
+    def create_thumbnail(self, project_id: str, photo_id: str, source: Path) -> Path: ...
 
-    def export_filename_list(self, project_id: str, filenames: list[str]) -> Path: ...
+    def write_export(self, project_id: str, filename: str, content: str) -> Path: ...
 
 
 class LocalImageStore:
     chunk_size = 1024 * 1024
+    thumbnail_size = 512
 
     def __init__(self, data_root: Path, max_file_size_bytes: int, max_decoded_pixels: int):
         self.data_root = data_root
@@ -137,11 +138,33 @@ class LocalImageStore:
                 if parent.name != ".incoming":
                     parent.rmdir()
 
-    def create_thumbnail(self, project_id: str, photo_id: str) -> Path:
-        raise NotImplementedError("Thumbnail creation belongs to the analysis workflow.")
+    def create_thumbnail(self, project_id: str, photo_id: str, source: Path) -> Path:
+        thumbnail = self.data_root / "projects" / project_id / "thumbnails" / f"{photo_id}.jpg"
+        if thumbnail.exists():
+            return thumbnail
+        thumbnail.parent.mkdir(parents=True, exist_ok=True)
+        partial = thumbnail.with_suffix(f".{uuid4()}.part")
+        try:
+            with Image.open(source) as image:
+                preview = ImageOps.exif_transpose(image).convert("RGB")
+                preview.thumbnail((self.thumbnail_size, self.thumbnail_size))
+                preview.save(partial, format="JPEG", quality=85)
+            partial.replace(thumbnail)
+        finally:
+            partial.unlink(missing_ok=True)
+        return thumbnail
 
-    def export_filename_list(self, project_id: str, filenames: list[str]) -> Path:
-        raise NotImplementedError("Export belongs to the review workflow.")
+    def write_export(self, project_id: str, filename: str, content: str) -> Path:
+        directory = self.data_root / "exports" / project_id
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / Path(filename).name
+        partial = path.with_suffix(f".{uuid4()}.part")
+        try:
+            partial.write_text(content, encoding="utf-8", newline="")
+            partial.replace(path)
+        finally:
+            partial.unlink(missing_ok=True)
+        return path
 
     @staticmethod
     def _safe_filename(filename: str) -> str:

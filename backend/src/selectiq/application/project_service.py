@@ -3,7 +3,12 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
 
-from selectiq.domain.errors import ImportValidationError, ProjectNotFoundError, ValidationError
+from selectiq.domain.errors import (
+    ImportValidationError,
+    PhotoNotFoundError,
+    ProjectNotFoundError,
+    ValidationError,
+)
 from selectiq.domain.models import ImportFailure, Photograph, Project
 from selectiq.infrastructure.image_store import ImageStore
 from selectiq.infrastructure.project_repository import ProjectRepository
@@ -116,6 +121,13 @@ class ProjectService:
     def status(self, project_id: str) -> tuple[Project, list[ImportFailure]]:
         project = self._require_project(project_id)
         return project, self.repository.import_failures(project_id)
+
+    def thumbnail(self, project_id: str, photo_id: str) -> Path:
+        project = self.repository.get(project_id)
+        photo = next((p for p in project.photos if p.id == photo_id), None) if project else None
+        if photo is None:
+            raise PhotoNotFoundError(f"Photo {photo_id} was not found in project {project_id}.")
+        return self.image_store.create_thumbnail(project_id, photo.id, photo.working_path)
 
     def _require_project(self, project_id: str) -> Project:
         project = self.repository.get(project_id)

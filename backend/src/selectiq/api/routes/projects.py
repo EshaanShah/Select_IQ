@@ -10,7 +10,7 @@ from selectiq.api.dependencies import get_analysis_service, get_project_service
 from selectiq.application.analysis_service import AnalysisService
 from selectiq.application.project_service import PhotoUpload, ProjectService
 from selectiq.domain.enums import ProcessingState
-from selectiq.domain.errors import ProjectNotFoundError, ValidationError
+from selectiq.domain.errors import PhotoNotFoundError, ProjectNotFoundError, ValidationError
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -196,6 +196,21 @@ def photo_content(
     if photo is None or not photo.working_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo was not found.")
     return FileResponse(photo.working_path, media_type="image/jpeg")
+
+
+@router.get("/{project_id}/photos/{photo_id}/thumbnail", response_class=FileResponse)
+def photo_thumbnail(
+    project_id: str,
+    photo_id: str,
+    service: Annotated[ProjectService, Depends(project_service)],
+) -> FileResponse:
+    try:
+        path = service.thumbnail(project_id, photo_id)
+    except PhotoNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return FileResponse(
+        path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"}
+    )
 
 
 @router.post("/{project_id}/brief", response_model=PromptTargetResponse)

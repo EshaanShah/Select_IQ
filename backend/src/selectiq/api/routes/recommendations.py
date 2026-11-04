@@ -1,12 +1,17 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, StrictInt
 
 from selectiq.api.dependencies import get_recommendation_service
 from selectiq.application.recommendation_service import RecommendationService
-from selectiq.domain.errors import ProjectNotFoundError, ProposalNotFoundError, ValidationError
+from selectiq.domain.errors import (
+    PhotoNotInProposalError,
+    ProjectNotFoundError,
+    ProposalNotFoundError,
+    ValidationError,
+)
 from selectiq.domain.models import Proposal
 
 router = APIRouter(prefix="/projects/{project_id}/recommendations", tags=["recommendations"])
@@ -28,6 +33,7 @@ class RecommendationResponse(BaseModel):
     rank: int
     score: float
     contributions: Contributions
+    removed: bool
 
 
 class ProvenanceResponse(BaseModel):
@@ -49,6 +55,7 @@ class ProposalResponse(BaseModel):
     version: int
     targetCount: int
     selectedCount: int
+    removedCount: int
     isGenuineAi: bool
     provenance: ProvenanceResponse
     parameters: dict[str, object]
@@ -84,6 +91,35 @@ def read_proposal(project_id: str, service: Service) -> ProposalResponse:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
 
 
+@router.delete("/selection/{photo_id}", response_model=ProposalResponse)
+def remove_photo(project_id: str, photo_id: str, service: Service) -> ProposalResponse:
+    try:
+        return to_response(service.remove(project_id, photo_id))
+    except (ProjectNotFoundError, ProposalNotFoundError, PhotoNotInProposalError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+
+
+@router.post("/selection/{photo_id}/restore", response_model=ProposalResponse)
+def restore_photo(project_id: str, photo_id: str, service: Service) -> ProposalResponse:
+    try:
+        return to_response(service.restore(project_id, photo_id))
+    except (ProjectNotFoundError, ProposalNotFoundError, PhotoNotInProposalError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+
+
+@router.get("/export", response_class=Response)
+def export_selection(project_id: str, service: Service) -> Response:
+    try:
+        export = service.export(project_id)
+    except (ProjectNotFoundError, ProposalNotFoundError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from error
+    return Response(
+        content=export.content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{export.filename}"'},
+    )
+
+
 def to_response(proposal: Proposal) -> ProposalResponse:
     provenance = proposal.provenance
     return ProposalResponse(
@@ -91,7 +127,8 @@ def to_response(proposal: Proposal) -> ProposalResponse:
         projectId=proposal.project_id,
         version=proposal.version,
         targetCount=proposal.target_count,
-        selectedCount=len(proposal.items),
+        selectedCount=len(proposal.selected),
+        removedCount=proposal.removed_count,
         isGenuineAi=provenance.is_genuine_ai,
         provenance=ProvenanceResponse(
             kind=provenance.kind,
@@ -118,6 +155,7 @@ def to_response(proposal: Proposal) -> ProposalResponse:
                     aiGuidance=item.contributions["ai_guidance"],
                     preference=item.contributions["preference"],
                 ),
+                removed=item.removed,
             )
             for item in proposal.items
         ],

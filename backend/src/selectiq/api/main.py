@@ -21,8 +21,9 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
+        expose_headers=["Content-Disposition"],
     )
     app.include_router(projects.router)
     app.include_router(comparisons.router)

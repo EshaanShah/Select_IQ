@@ -145,6 +145,7 @@ class ProposalItem:
     rank: int
     score: float
     contributions: dict[str, float]
+    removed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +158,14 @@ class Proposal:
     parameters: dict[str, object]
     items: tuple[ProposalItem, ...]
     created_at: datetime | None = None
+
+    @property
+    def selected(self) -> tuple[ProposalItem, ...]:
+        return tuple(item for item in self.items if not item.removed)
+
+    @property
+    def removed_count(self) -> int:
+        return len(self.items) - len(self.selected)
 
 
 @dataclass(frozen=True, slots=True)
