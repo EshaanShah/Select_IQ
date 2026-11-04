@@ -3,8 +3,8 @@
 from io import BytesIO
 
 import pytest
-
 from conftest import AiStack, distinct_jpegs
+
 from selectiq.application.project_service import PhotoUpload
 
 

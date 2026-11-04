@@ -127,6 +127,7 @@ def get_recommendation_service() -> RecommendationService:
         get_preference_service(),
         genuine_encoder=settings.model_adapter == "openclip",
         genuine_reasoner=settings.reasoner == "groq",
+        analysis_running=runner.is_active,
     )
     return RecommendationService(
         get_repository(),

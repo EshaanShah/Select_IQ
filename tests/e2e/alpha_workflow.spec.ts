@@ -19,6 +19,10 @@ function proposalGrid(page: Page) {
   return page.getByRole("list", { name: "Proposed photographs" });
 }
 
+function selectionCount(page: Page, text: string) {
+  return page.getByRole("region", { name: "Generate a proposal" }).getByText(text);
+}
+
 function steps(page: Page) {
   return page.getByRole("list", { name: "Demo steps" });
 }
@@ -68,12 +72,12 @@ async function runDemo(page: Page): Promise<DemoResult> {
   const beforeChoices = await generate(page, 1);
   await makeChoices(page);
   const proposed = await generate(page, 2);
-  await expect(page.getByText("5 of 5 selected")).toBeVisible();
+  await expect(selectionCount(page, "5 of 5 selected")).toBeVisible();
   await expect(page.getByRole("note")).toContainText("Based on 5 saved choices");
 
   const removed = proposed[1];
   await proposalGrid(page).getByRole("button", { name: `Remove ${removed}` }).click();
-  await expect(page.getByText("4 of 5 selected")).toBeVisible();
+  await expect(selectionCount(page, "4 of 5 selected")).toBeVisible();
   await expect(steps(page).locator("[aria-current=step]")).toContainText("4 of 5 selected");
 
   const [download] = await Promise.all([
@@ -132,7 +136,7 @@ test.describe("SelectIQ Alpha guided demo", () => {
 
     await page.unroute("**/recommendations");
     await page.getByRole("button", { name: "Generate proposal" }).click();
-    await expect(page.getByText("3 of 3 selected")).toBeVisible();
+    await expect(selectionCount(page, "3 of 3 selected")).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 

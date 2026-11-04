@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 import {
+  ApiError,
   createProject,
   getProjectStatus,
   savePromptAndTarget,
@@ -9,12 +10,14 @@ import {
 } from "../shared/api/client";
 import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
 import { ComparisonPage } from "../features/comparisons/ComparisonPage";
+import { GuidedSteps, type ComparisonProgress } from "../features/evaluation/GuidedSteps";
 import { ProposalPanel } from "../features/gallery-review/ProposalPanel";
 import type {
   AnalysisFailure,
   AnalysisStatus,
   ImportFailure,
   ProjectStatus,
+  Proposal,
 } from "../shared/types";
 import "./app.css";
 
@@ -43,6 +46,8 @@ export function App() {
   const [analysisFailures, setAnalysisFailures] = useState<AnalysisFailure[]>([]);
   const [analysisModel, setAnalysisModel] = useState<string | null>(null);
   const [comparisonsStarted, setComparisonsStarted] = useState(false);
+  const [comparisonProgress, setComparisonProgress] = useState<ComparisonProgress | null>(null);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
 
   function applyStatus(status: ProjectStatus) {
     setAcceptedCount(status.acceptedCount);
@@ -73,10 +78,13 @@ export function App() {
           applyStatus(status);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
+      .catch((reason: unknown) => {
+        if (cancelled) return;
+        if (reason instanceof ApiError && reason.status === 404) {
           window.localStorage.removeItem(projectStorageKey);
           setProjectId(null);
+        } else {
+          setError(reason instanceof Error ? reason.message : "The saved project could not be loaded.");
         }
       });
     return () => {
@@ -207,6 +215,14 @@ export function App() {
           changes your originals.
         </p>
       </header>
+
+      <GuidedSteps
+        acceptedCount={acceptedCount}
+        savedTarget={savedTarget}
+        analysisStatus={analysisStatus}
+        comparisons={comparisonProgress}
+        proposal={proposal && { selected: proposal.selectedCount, target: proposal.targetCount }}
+      />
 
       <section className="upload-card" aria-labelledby="upload-title">
         <div className="card-heading">
@@ -404,10 +420,14 @@ export function App() {
                   </button>
                 </section>
               ) : (
-                <ComparisonPage projectId={projectId} />
+                <ComparisonPage projectId={projectId} onProgress={setComparisonProgress} />
               )}
               {savedTarget !== null && (
-                <ProposalPanel projectId={projectId} savedTarget={savedTarget} />
+                <ProposalPanel
+                  projectId={projectId}
+                  savedTarget={savedTarget}
+                  onProposal={setProposal}
+                />
               )}
             </>
           )}

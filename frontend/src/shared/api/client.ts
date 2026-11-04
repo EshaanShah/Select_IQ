@@ -22,7 +22,15 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init);
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, init);
+  } catch {
+    throw new ApiError(
+      `SelectIQ cannot reach its local API at ${apiBaseUrl}. Start it with scripts/dev.sh and try again.`,
+      0,
+    );
+  }
 
   if (!response.ok) {
     let detail = `SelectIQ API request failed with status ${response.status}`;

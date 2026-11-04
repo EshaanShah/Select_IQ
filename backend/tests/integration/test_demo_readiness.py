@@ -1,8 +1,8 @@
 """A-09: the guided demo never produces a proposal while AI work is still in flight."""
 
 import pytest
-
 from conftest import AiStack
+
 from selectiq.domain.errors import ValidationError
 
 

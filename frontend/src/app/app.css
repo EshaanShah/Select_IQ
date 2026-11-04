@@ -88,7 +88,18 @@ h2 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.55rem; font-weig
 .export-row p { margin: 0; color: #707871; font-size: 0.88rem; }
 .submit.export { display: inline-block; width: auto; flex-shrink: 0; text-align: center; text-decoration: none; }
 
+.guided-steps { margin: 0 0 24px; }
+.guided-steps ol { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.step { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid #e0dccf; border-radius: 12px; background: #fbf9f3; }
+.step-number { display: grid; flex-shrink: 0; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e7e3d8; color: #4b544e; font-size: 0.78rem; font-weight: 800; }
+.step-text { display: grid; gap: 2px; font-size: 0.78rem; line-height: 1.3; }
+.step-text small { color: #707871; }
+.step.done .step-number { background: #dceee2; color: #23613e; }
+.step.current { border-color: #357455; background: #f1f8f3; box-shadow: 0 0 0 3px rgb(53 116 85 / 12%); }
+.step.current .step-number { background: #245e40; color: white; }
+
 @media (max-width: 600px) {
+  .guided-steps ol { grid-template-columns: repeat(2, 1fr); }
   .shell { padding: 40px 0; }
   .card-heading { flex-direction: column; }
   .count { width: 100%; }
