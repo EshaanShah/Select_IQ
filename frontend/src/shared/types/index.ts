@@ -115,3 +115,45 @@ export type InterpretationStarted = {
   projectId: ProjectId;
   status: string;
 };
+
+export type ProvenanceKind = "ai_informed" | "partial_ai" | "test_signals";
+
+export type ProposalProvenance = {
+  kind: ProvenanceKind;
+  label: string;
+  embeddingModel: string;
+  embeddingsGenuine: boolean;
+  guidanceModel: string | null;
+  guidanceStatus: "completed" | "failed" | "not_started";
+  guidanceGenuine: boolean;
+  comparisonsUsed: number;
+  preferenceMethod: string;
+  excludedPhotoCount: number;
+};
+
+export type SignalContributions = {
+  promptRelevance: number;
+  aiGuidance: number;
+  preference: number;
+};
+
+export type Recommendation = {
+  photoId: PhotoId;
+  originalFilename: string;
+  rank: number;
+  score: number;
+  contributions: SignalContributions;
+};
+
+export type Proposal = {
+  proposalId: string;
+  projectId: ProjectId;
+  version: number;
+  targetCount: number;
+  selectedCount: number;
+  isGenuineAi: boolean;
+  provenance: ProposalProvenance;
+  parameters: Record<string, unknown>;
+  createdAt: string | null;
+  recommendations: Recommendation[];
+};

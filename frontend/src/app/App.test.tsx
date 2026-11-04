@@ -266,9 +266,34 @@ describe("brief interpretation", () => {
       if (url.endsWith("/comparisons/next") && nextComparison) {
         return response(nextComparison);
       }
+      if (url.endsWith("/recommendations")) {
+        return response({ detail: "Project project-1 has no proposal yet." }, 404);
+      }
       throw new Error(`Unexpected request ${url}`);
     });
   }
+
+  const notStarted = {
+    projectId: "project-1",
+    status: "not_started",
+    provider: null,
+    model: null,
+    summary: null,
+    positiveDescriptors: [],
+    negativeDescriptors: [],
+    photoNotes: [],
+    errorCode: null,
+    errorMessage: null,
+    rankingBasis: "brief_relevance",
+    ranking: [],
+  };
+
+  it("offers proposal generation with the saved target once analysis completes", async () => {
+    route(notStarted);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Generate a proposal" })).toBeInTheDocument();
+    expect(screen.getByText("Target: 2 photographs, from your saved brief.")).toBeInTheDocument();
+  });
 
   it("opens the first comparison from the completed analysis workflow", async () => {
     route(
@@ -389,3 +414,32 @@ function response(body: unknown, status = 200): Response {
     json: async () => body,
   } as Response;
 }
+
+describe("proposal step", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+  });
+
+  it("stays hidden until analysis has completed", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValue(
+      response({
+        projectId: "project-1",
+        acceptedCount: 3,
+        remainingCapacity: 27,
+        failures: [],
+        prompt: "Quiet moments.",
+        target: 2,
+        analysisStatus: "idle",
+        analysisTotal: 3,
+        analysisCompleted: 0,
+        analysisFailed: 0,
+        analysisFailures: [],
+      }),
+    );
+    render(<App />);
+    await screen.findByLabelText("3 photos accepted");
+    expect(screen.queryByRole("heading", { name: "Generate a proposal" })).not.toBeInTheDocument();
+  });
+});
