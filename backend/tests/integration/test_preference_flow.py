@@ -47,7 +47,9 @@ def analyzed_project(
     return project.id, [photo.id for photo in result.accepted]
 
 
-def services(project_service: ProjectService) -> tuple[ComparisonService, PreferenceService]:
+def services(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> tuple[ComparisonService, PreferenceService]:
     comparisons = ComparisonService(
         repository=project_service.repository,
         pair_selector=DeterministicPairSelector(),
@@ -55,6 +57,7 @@ def services(project_service: ProjectService) -> tuple[ComparisonService, Prefer
     )
     preferences = PreferenceService(
         repository=project_service.repository,
+        embedding_cache=cache,
         model=PairwisePreferenceModel(seed=0),
     )
     return comparisons, preferences
@@ -64,7 +67,7 @@ def test_zero_choices_give_neutral_scores_for_analyzed_photos(
     project_service: ProjectService, cache: NumpyEmbeddingCache
 ) -> None:
     project_id, photo_ids = analyzed_project(project_service, cache)
-    _, preferences = services(project_service)
+    _, preferences = services(project_service, cache)
 
     result = preferences.scores(project_id)
 
@@ -77,7 +80,7 @@ def test_saved_choice_raises_winner_above_loser(
     project_service: ProjectService, cache: NumpyEmbeddingCache
 ) -> None:
     project_id, _ = analyzed_project(project_service, cache)
-    comparisons, preferences = services(project_service)
+    comparisons, preferences = services(project_service, cache)
     pair = comparisons.next_pair(project_id)
     assert pair is not None
     before = preferences.scores(project_id)
@@ -96,13 +99,13 @@ def test_scores_are_reproducible_across_service_instances(
     project_service: ProjectService, cache: NumpyEmbeddingCache
 ) -> None:
     project_id, _ = analyzed_project(project_service, cache)
-    comparisons, preferences = services(project_service)
+    comparisons, preferences = services(project_service, cache)
     for _ in range(3):
         pair = comparisons.next_pair(project_id)
         assert pair is not None
         comparisons.record_choice(project_id, pair.photo_a_id, pair.photo_b_id, pair.photo_a_id)
 
-    _, fresh = services(project_service)
+    _, fresh = services(project_service, cache)
 
     assert preferences.scores(project_id).scores == fresh.scores(project_id).scores
 
@@ -112,7 +115,7 @@ def test_preferences_never_leak_across_projects(
 ) -> None:
     first_id, _ = analyzed_project(project_service, cache)
     second_id, second_photos = analyzed_project(project_service, cache)
-    comparisons, preferences = services(project_service)
+    comparisons, preferences = services(project_service, cache)
     second_before = preferences.scores(second_id)
 
     for _ in range(3):
@@ -134,7 +137,7 @@ def test_unanalyzed_photos_are_excluded_without_failing(
     late = project_service.import_photos(
         project_id, [PhotoUpload("late.jpg", BytesIO(make_jpeg(color="#123456")))]
     )
-    _, preferences = services(project_service)
+    _, preferences = services(project_service, cache)
 
     result = preferences.scores(project_id)
 
@@ -142,17 +145,56 @@ def test_unanalyzed_photos_are_excluded_without_failing(
     assert late.accepted[0].id not in result.scores
 
 
-def test_project_without_analysis_is_rejected(project_service: ProjectService) -> None:
+def test_missing_cached_embedding_is_excluded_without_failing(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> None:
+    project_id, photo_ids = analyzed_project(project_service, cache)
+    missing_id = photo_ids[0]
+    feature = project_service.repository.get_feature(missing_id)
+    assert feature is not None
+    feature.embedding_path.unlink()
+    _, preferences = services(project_service, cache)
+
+    result = preferences.scores(project_id)
+
+    assert missing_id not in result.scores
+    assert set(result.scores) == set(photo_ids[1:])
+    assert result.comparisons_used == 0
+
+
+def test_choice_with_unanalyzed_photo_is_not_used_for_training(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> None:
+    project_id, photo_ids = analyzed_project(project_service, cache)
+    late = project_service.import_photos(
+        project_id, [PhotoUpload("late.jpg", BytesIO(make_jpeg(color="#123456")))]
+    ).accepted[0]
+    comparisons, preferences = services(project_service, cache)
+    comparisons.record_choice(project_id, photo_ids[0], late.id, winner_id=photo_ids[0])
+
+    result = preferences.scores(project_id)
+
+    assert set(result.scores) == set(photo_ids)
+    assert late.id not in result.scores
+    assert result.comparisons_used == 0
+    assert all(score == pytest.approx(0.0) for score in result.scores.values())
+
+
+def test_project_without_analysis_is_rejected(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> None:
     project = project_service.create_project()
     project_service.import_photos(project.id, [PhotoUpload("a.jpg", BytesIO(make_jpeg()))])
-    _, preferences = services(project_service)
+    _, preferences = services(project_service, cache)
 
     with pytest.raises(ValidationError):
         preferences.scores(project.id)
 
 
-def test_unknown_project_is_rejected(project_service: ProjectService) -> None:
-    _, preferences = services(project_service)
+def test_unknown_project_is_rejected(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> None:
+    _, preferences = services(project_service, cache)
 
     with pytest.raises(ProjectNotFoundError):
         preferences.scores("00000000-0000-0000-0000-000000000000")

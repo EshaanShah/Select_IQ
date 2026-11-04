@@ -27,7 +27,7 @@ def make_jpeg(color: str = "#416b55") -> bytes:
     return output.getvalue()
 
 
-def make_client(project_service: ProjectService) -> TestClient:
+def make_client(project_service: ProjectService, tmp_path) -> TestClient:
     app = create_app()
     comparisons = ComparisonService(
         repository=project_service.repository,
@@ -35,7 +35,9 @@ def make_client(project_service: ProjectService) -> TestClient:
         comparison_budget=5,
     )
     preferences = PreferenceService(
-        repository=project_service.repository, model=PairwisePreferenceModel(seed=0)
+        repository=project_service.repository,
+        embedding_cache=NumpyEmbeddingCache(tmp_path / "cache"),
+        model=PairwisePreferenceModel(seed=0),
     )
     app.dependency_overrides[project_service_dependency] = lambda: project_service
     app.dependency_overrides[comparison_service_dependency] = lambda: comparisons
@@ -64,7 +66,7 @@ def analyzed_project(client: TestClient, project_service: ProjectService, tmp_pa
 def test_preferences_contract_reports_scores_and_honest_method(
     project_service: ProjectService, tmp_path
 ) -> None:
-    client = make_client(project_service)
+    client = make_client(project_service, tmp_path)
     project_id = analyzed_project(client, project_service, tmp_path)
     pair = client.get(f"/projects/{project_id}/comparisons/next").json()
     winner = pair["photoB"]["photoId"]
@@ -93,16 +95,36 @@ def test_preferences_contract_reports_scores_and_honest_method(
     assert ordered == sorted(ordered, reverse=True)
 
 
-def test_preferences_for_unknown_project_return_404(project_service: ProjectService) -> None:
-    client = make_client(project_service)
+def test_neutral_scores_use_photo_id_as_a_stable_tie_breaker(
+    project_service: ProjectService, tmp_path
+) -> None:
+    client = make_client(project_service, tmp_path)
+    project_id = analyzed_project(client, project_service, tmp_path)
+
+    response = client.get(f"/projects/{project_id}/preferences")
+
+    assert response.status_code == 200
+    scores = response.json()["scores"]
+    assert all(entry["score"] == 0.0 for entry in scores)
+    assert [entry["photoId"] for entry in scores] == sorted(
+        entry["photoId"] for entry in scores
+    )
+
+
+def test_preferences_for_unknown_project_return_404(
+    project_service: ProjectService, tmp_path
+) -> None:
+    client = make_client(project_service, tmp_path)
 
     response = client.get("/projects/00000000-0000-0000-0000-000000000000/preferences")
 
     assert response.status_code == 404
 
 
-def test_preferences_before_analysis_return_409(project_service: ProjectService) -> None:
-    client = make_client(project_service)
+def test_preferences_before_analysis_return_409(
+    project_service: ProjectService, tmp_path
+) -> None:
+    client = make_client(project_service, tmp_path)
     project_id = client.post("/projects").json()["projectId"]
     client.post(
         f"/projects/{project_id}/photos",
