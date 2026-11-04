@@ -1,7 +1,7 @@
 import pytest
+from conftest import AiStack
 from fastapi.testclient import TestClient
 
-from conftest import AiStack
 from selectiq.api.main import create_app
 from selectiq.api.routes.recommendations import (
     recommendation_service as recommendation_service_dependency,
@@ -11,7 +11,7 @@ from selectiq.api.routes.recommendations import (
 @pytest.fixture
 def client(stack: AiStack) -> TestClient:
     app = create_app()
-    app.dependency_overrides[recommendation_service_dependency] = stack.recommendations
+    app.dependency_overrides[recommendation_service_dependency] = lambda: stack.recommendations()
     return TestClient(app)
 
 

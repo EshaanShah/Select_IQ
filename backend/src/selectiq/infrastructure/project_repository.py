@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
@@ -41,6 +43,9 @@ from selectiq.domain.models import (
     Photograph,
     PhotoNote,
     Project,
+    Proposal,
+    ProposalItem,
+    SignalProvenance,
 )
 
 
@@ -256,6 +261,59 @@ class ComparisonChoiceRow(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ProposalRow(Base):
+    __tablename__ = "proposals"
+    __table_args__ = (
+        UniqueConstraint("project_id", "version", name="uq_proposals_project_version"),
+        CheckConstraint("target_count > 0", name="ck_proposals_target_positive"),
+        Index("ix_proposals_project_id", "project_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_genuine_ai: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    provenance: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    parameters: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProposalItemRow(Base):
+    __tablename__ = "proposal_items"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "rank", name="uq_proposal_items_rank"),
+        CheckConstraint("rank > 0", name="ck_proposal_items_rank_positive"),
+    )
+
+    proposal_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("proposals.id", ondelete="CASCADE"), primary_key=True
+    )
+    photo_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    contributions: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+
+
+class ProposalRepository(Protocol):
+    def create(
+        self,
+        project_id: str,
+        target_count: int,
+        provenance: SignalProvenance,
+        parameters: dict[str, object],
+        items: Sequence[ProposalItem],
+    ) -> Proposal: ...
+
+    def latest(self, project_id: str) -> Proposal | None: ...
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
@@ -656,3 +714,93 @@ class SqlProjectRepository:
             return UUID(value)
         except (TypeError, ValueError):
             return None
+
+
+class SqlProposalRepository:
+    def __init__(self, session_factory: sessionmaker[Session]):
+        self.session_factory = session_factory
+        self._write_lock = Lock()
+
+    def create(
+        self,
+        project_id: str,
+        target_count: int,
+        provenance: SignalProvenance,
+        parameters: dict[str, object],
+        items: Sequence[ProposalItem],
+    ) -> Proposal:
+        project_uuid = UUID(project_id)
+        proposal_id = uuid4()
+        with self._write_lock, self.session_factory.begin() as session:
+            current = session.scalar(
+                select(func.max(ProposalRow.version)).where(ProposalRow.project_id == project_uuid)
+            )
+            session.add(
+                ProposalRow(
+                    id=proposal_id,
+                    project_id=project_uuid,
+                    version=int(current or 0) + 1,
+                    target_count=target_count,
+                    is_genuine_ai=provenance.is_genuine_ai,
+                    provenance=asdict(provenance),
+                    parameters=parameters,
+                )
+            )
+            session.flush()
+            session.add_all(
+                ProposalItemRow(
+                    proposal_id=proposal_id,
+                    photo_id=UUID(item.photo_id),
+                    rank=item.rank,
+                    score=item.score,
+                    contributions=item.contributions,
+                )
+                for item in items
+            )
+        proposal = self._load(proposal_id)
+        assert proposal is not None
+        return proposal
+
+    def latest(self, project_id: str) -> Proposal | None:
+        project_uuid = SqlProjectRepository._uuid(project_id)
+        if project_uuid is None:
+            return None
+        with self.session_factory() as session:
+            proposal_id = session.scalar(
+                select(ProposalRow.id)
+                .where(ProposalRow.project_id == project_uuid)
+                .order_by(ProposalRow.version.desc())
+                .limit(1)
+            )
+        return None if proposal_id is None else self._load(proposal_id)
+
+    def _load(self, proposal_id: UUID) -> Proposal | None:
+        with self.session_factory() as session:
+            row = session.get(ProposalRow, proposal_id)
+            if row is None:
+                return None
+            item_rows = session.execute(
+                select(ProposalItemRow, PhotoRow.original_filename)
+                .join(PhotoRow, PhotoRow.id == ProposalItemRow.photo_id)
+                .where(ProposalItemRow.proposal_id == proposal_id)
+                .order_by(ProposalItemRow.rank)
+            ).all()
+            return Proposal(
+                id=str(row.id),
+                project_id=str(row.project_id),
+                version=row.version,
+                target_count=row.target_count,
+                provenance=SignalProvenance(**row.provenance),
+                parameters=dict(row.parameters),
+                items=tuple(
+                    ProposalItem(
+                        photo_id=str(item.photo_id),
+                        original_filename=filename,
+                        rank=item.rank,
+                        score=item.score,
+                        contributions=dict(item.contributions),
+                    )
+                    for item, filename in item_rows
+                ),
+                created_at=row.created_at,
+            )

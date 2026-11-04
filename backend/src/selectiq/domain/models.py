@@ -87,6 +87,79 @@ class PhotoSignals:
 
 
 @dataclass(frozen=True, slots=True)
+class SignalProvenance:
+    """Which models produced a proposal's signals, so test or fallback runs never pass as AI."""
+
+    embedding_model: str
+    embeddings_genuine: bool
+    guidance_model: str | None
+    guidance_status: str  # completed, failed, not_started
+    guidance_genuine: bool
+    comparisons_used: int
+    preference_method: str
+    excluded_photo_count: int = 0
+
+    @property
+    def kind(self) -> str:
+        if not self.embeddings_genuine:
+            return "test_signals"
+        if self.guidance_genuine and self.guidance_status == "completed":
+            return "ai_informed"
+        return "partial_ai"
+
+    @property
+    def is_genuine_ai(self) -> bool:
+        return self.kind == "ai_informed"
+
+    @property
+    def label(self) -> str:
+        choices = _choices_phrase(self.comparisons_used)
+        kind = self.kind
+        if kind == "ai_informed":
+            return (
+                f"AI-informed proposal: {self.embedding_model} brief relevance, "
+                f"{self.guidance_model} guidance, and {choices}."
+            )
+        if kind == "partial_ai":
+            if self.guidance_status == "completed":
+                reason = f"guidance came from the offline stand-in {self.guidance_model}"
+            else:
+                reason = "AI interpretation unavailable — using basic relevance"
+            return f"Partially AI-informed: {self.embedding_model} brief relevance and {choices}; {reason}."
+        return (
+            f"Test signals (not AI): {self.embedding_model} encoder and "
+            f"{self.guidance_model or 'no'} reasoner with {choices}."
+        )
+
+
+def _choices_phrase(count: int) -> str:
+    if count == 0:
+        return "no saved choices"
+    return f"{count} saved choice{'' if count == 1 else 's'}"
+
+
+@dataclass(frozen=True, slots=True)
+class ProposalItem:
+    photo_id: str
+    original_filename: str
+    rank: int
+    score: float
+    contributions: dict[str, float]
+
+
+@dataclass(frozen=True, slots=True)
+class Proposal:
+    id: str
+    project_id: str
+    version: int
+    target_count: int
+    provenance: SignalProvenance
+    parameters: dict[str, object]
+    items: tuple[ProposalItem, ...]
+    created_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ImportFailure:
     filename: str
     code: str

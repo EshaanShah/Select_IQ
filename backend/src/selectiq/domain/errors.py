@@ -10,6 +10,10 @@ class ProjectNotFoundError(SelectIQError):
     """Raised when a project ID does not belong to a stored project."""
 
 
+class ProposalNotFoundError(SelectIQError):
+    """Raised when a project has no generated proposal yet."""
+
+
 class DuplicateComparisonError(ValidationError):
     """Raised when a project submits the same unordered photo pair twice."""
 

@@ -4,8 +4,8 @@ import hashlib
 from io import BytesIO
 
 import pytest
-
 from conftest import AiStack, build_stack, distinct_jpegs
+
 from selectiq.application.project_service import PhotoUpload, ProjectService
 from selectiq.domain.errors import ProjectNotFoundError, ProposalNotFoundError, ValidationError
 from selectiq.infrastructure.model_adapters import DeterministicVisualEncoder

@@ -4,10 +4,16 @@ from selectiq.application.analysis_service import AnalysisService
 from selectiq.application.comparison_service import ComparisonService
 from selectiq.application.preference_service import PreferenceService
 from selectiq.application.project_service import ProjectService
+from selectiq.application.proposal_signals import ProjectSignalProvider
+from selectiq.application.recommendation_service import RecommendationService
 from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
 from selectiq.infrastructure.image_store import LocalImageStore
 from selectiq.infrastructure.model_adapters import DeterministicVisualEncoder, OpenClipVisualEncoder
-from selectiq.infrastructure.project_repository import SqlProjectRepository, create_session_factory
+from selectiq.infrastructure.project_repository import (
+    SqlProjectRepository,
+    SqlProposalRepository,
+    create_session_factory,
+)
 from selectiq.infrastructure.reasoners import (
     BriefReasoner,
     GroqBriefReasoner,
@@ -101,4 +107,22 @@ def get_preference_service() -> PreferenceService:
         get_repository(),
         NumpyEmbeddingCache(settings.data_root / "cache"),
         PairwisePreferenceModel(seed=0),
+    )
+
+
+@lru_cache
+def get_recommendation_service() -> RecommendationService:
+    settings = get_settings()
+    runner = get_analysis_runner()
+    assert runner.interpreter is not None
+    provider = ProjectSignalProvider(
+        get_repository(),
+        runner.extractor,
+        runner.interpreter,
+        get_preference_service(),
+        genuine_encoder=settings.model_adapter == "openclip",
+        genuine_reasoner=settings.reasoner == "groq",
+    )
+    return RecommendationService(
+        get_repository(), SqlProposalRepository(get_repository().session_factory), provider
     )
