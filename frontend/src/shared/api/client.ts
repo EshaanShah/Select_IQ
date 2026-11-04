@@ -93,3 +93,24 @@ export async function getProposal(projectId: string): Promise<Proposal | null> {
 export function generateProposal(projectId: string): Promise<Proposal> {
   return apiRequest<Proposal>(`/projects/${projectId}/recommendations`, { method: "POST" });
 }
+
+export function removeFromSelection(projectId: string, photoId: string): Promise<Proposal> {
+  return apiRequest<Proposal>(`/projects/${projectId}/recommendations/selection/${photoId}`, {
+    method: "DELETE",
+  });
+}
+
+export function restoreToSelection(projectId: string, photoId: string): Promise<Proposal> {
+  return apiRequest<Proposal>(
+    `/projects/${projectId}/recommendations/selection/${photoId}/restore`,
+    { method: "POST" },
+  );
+}
+
+export function exportUrl(projectId: string): string {
+  return `${apiBaseUrl}/projects/${projectId}/recommendations/export`;
+}
+
+export function thumbnailUrl(projectId: string, photoId: string): string {
+  return `${apiBaseUrl}/projects/${projectId}/photos/${photoId}/thumbnail`;
+}

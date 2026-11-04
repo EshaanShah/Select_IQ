@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { generateProposal, getProposal } from "../../shared/api/client";
+import {
+  exportUrl,
+  generateProposal,
+  getProposal,
+  removeFromSelection,
+  restoreToSelection,
+} from "../../shared/api/client";
 import type { Proposal, ProposalProvenance, ProvenanceKind } from "../../shared/types";
+import { ReviewGrid } from "./ReviewGrid";
 
 type ProposalPanelProps = {
   projectId: string;
@@ -12,6 +19,7 @@ export function ProposalPanel({ projectId, savedTarget }: ProposalPanelProps) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [pendingPhotoId, setPendingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +49,18 @@ export function ProposalPanel({ projectId, savedTarget }: ProposalPanelProps) {
       setError(messageFrom(reason, "The proposal could not be generated."));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function review(photoId: string, action: typeof removeFromSelection) {
+    setPendingPhotoId(photoId);
+    setError(null);
+    try {
+      setProposal(await action(projectId, photoId));
+    } catch (reason) {
+      setError(messageFrom(reason, "The selection could not be updated."));
+    } finally {
+      setPendingPhotoId(null);
     }
   }
 
@@ -90,15 +110,22 @@ export function ProposalPanel({ projectId, savedTarget }: ProposalPanelProps) {
               {proposal.selectedCount} of {proposal.targetCount} selected
             </span>
           </div>
-          <ol className="ranked" aria-label="Proposed photographs">
-            {proposal.recommendations.map((item) => (
-              <li key={item.photoId}>
-                <span className="rank">{item.rank}</span>
-                <span className="filename">{item.originalFilename}</span>
-                <span className="score">score {item.score.toFixed(2)}</span>
-              </li>
-            ))}
-          </ol>
+          <ReviewGrid
+            projectId={projectId}
+            recommendations={proposal.recommendations}
+            pendingPhotoId={pendingPhotoId}
+            onRemove={(photoId) => review(photoId, removeFromSelection)}
+            onRestore={(photoId) => review(photoId, restoreToSelection)}
+          />
+          <div className="export-row">
+            <p>
+              Removed photos are not replaced. The CSV lists each remaining photo's ID and original
+              filename.
+            </p>
+            <a className="submit export" href={exportUrl(projectId)} download>
+              Export CSV ({proposal.selectedCount} {proposal.selectedCount === 1 ? "photo" : "photos"})
+            </a>
+          </div>
         </>
       )}
     </section>
