@@ -4,9 +4,16 @@ import {
   createProject,
   getProjectStatus,
   savePromptAndTarget,
+  startAnalysis,
   uploadPhotos,
 } from "../shared/api/client";
-import type { ImportFailure } from "../shared/types";
+import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
+import type {
+  AnalysisFailure,
+  AnalysisStatus,
+  ImportFailure,
+  ProjectStatus,
+} from "../shared/types";
 import "./app.css";
 
 const projectStorageKey = "selectiq.projectId";
@@ -29,6 +36,26 @@ export function App() {
   const [briefBusy, setBriefBusy] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [briefSaved, setBriefSaved] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+  const [analysisCompleted, setAnalysisCompleted] = useState(0);
+  const [analysisFailures, setAnalysisFailures] = useState<AnalysisFailure[]>([]);
+  const [analysisModel, setAnalysisModel] = useState<string | null>(null);
+
+  function applyStatus(status: ProjectStatus) {
+    setAcceptedCount(status.acceptedCount);
+    setFailures(status.failures);
+    setPrompt(status.prompt ?? "");
+    setTarget(status.target?.toString() ?? "");
+    setBriefSaved(Boolean(status.prompt && status.target));
+    setAnalysisStatus((current) =>
+      status.analysisStatus === "idle" && current === "queued"
+        ? current
+        : (status.analysisStatus ?? "idle"),
+    );
+    setAnalysisCompleted(status.analysisCompleted ?? 0);
+    setAnalysisFailures(status.analysisFailures ?? []);
+    setAnalysisModel(status.analysisModel ?? null);
+  }
 
   useEffect(() => {
     folderInput.current?.setAttribute("webkitdirectory", "");
@@ -40,10 +67,7 @@ export function App() {
     getProjectStatus(projectId)
       .then((status) => {
         if (!cancelled) {
-          setAcceptedCount(status.acceptedCount);
-          setFailures(status.failures);
-          setPrompt(status.prompt ?? "");
-          setTarget(status.target?.toString() ?? "");
+          applyStatus(status);
         }
       })
       .catch(() => {
@@ -56,6 +80,28 @@ export function App() {
       cancelled = true;
     };
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !["queued", "running"].includes(analysisStatus)) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      getProjectStatus(projectId)
+        .then((status) => {
+          if (!cancelled) applyStatus(status);
+        })
+        .catch((reason) => {
+          if (!cancelled) {
+            setError(
+              reason instanceof Error ? reason.message : "Analysis status could not be loaded.",
+            );
+          }
+        });
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [analysisStatus, projectId]);
 
   function chooseFiles(event: ChangeEvent<HTMLInputElement>) {
     setSelectedFiles(Array.from(event.target.files ?? []));
@@ -82,6 +128,7 @@ export function App() {
         `${result.batchAcceptedCount} accepted, ${result.batchRejectedCount} rejected in this upload.`,
       );
       setSelectedFiles([]);
+      setAnalysisStatus("idle");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The gallery could not be uploaded.");
     } finally {
@@ -119,10 +166,28 @@ export function App() {
       setPrompt(result.prompt);
       setTarget(result.target.toString());
       setBriefSaved(true);
+      setAnalysisStatus("idle");
     } catch (reason) {
       setBriefError(reason instanceof Error ? reason.message : "The brief could not be saved.");
     } finally {
       setBriefBusy(false);
+    }
+  }
+
+  async function analyzeGallery() {
+    if (!projectId || !briefSaved) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await startAnalysis(projectId);
+      setAnalysisStatus(result.analysisStatus);
+      if (result.analysisStatus === "completed") {
+        applyStatus(await getProjectStatus(projectId));
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Analysis could not be started.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -216,8 +281,8 @@ export function App() {
           <section className="ready" aria-live="polite">
             <span aria-hidden="true">✓</span>
             <div>
-              <strong>Your gallery is ready for the next step.</strong>
-              <p>Analysis has not started. You can add more photographs first.</p>
+              <strong>Gallery upload complete.</strong>
+              <p>Add more photographs or save the creative brief below.</p>
             </div>
           </section>
 
@@ -233,6 +298,7 @@ export function App() {
                 onChange={(event) => {
                   setPrompt(event.target.value);
                   setBriefSaved(false);
+                  setAnalysisStatus("idle");
                 }}
                 disabled={briefBusy}
                 rows={5}
@@ -266,6 +332,61 @@ export function App() {
             {briefSaved && <p className="success">Brief and target saved.</p>}
             {briefError && <p className="error" role="alert">{briefError}</p>}
           </section>
+
+          <section className="analysis-card" aria-live="polite">
+            <div>
+              <h2>AI feature analysis</h2>
+              {analysisStatus === "idle" && (
+                <p>
+                  {briefSaved
+                    ? "Generate image and prompt embeddings before continuing."
+                    : "Save the creative brief before starting analysis."}
+                </p>
+              )}
+              {["queued", "running"].includes(analysisStatus) && (
+                <p>{analysisCompleted} of {acceptedCount} photographs analyzed…</p>
+              )}
+              {analysisStatus === "completed" && (
+                <p>
+                  <strong>Your gallery is ready for the next step.</strong>
+                  {analysisModel ? ` ${analysisModel} completed the analysis.` : ""}
+                </p>
+              )}
+              {["partial_failure", "failed"].includes(analysisStatus) && (
+                <p className="error" role="alert">
+                  Analysis failed for {analysisFailures.length} photograph(s). Review the details
+                  and retry.
+                </p>
+              )}
+            </div>
+            {analysisStatus !== "completed" &&
+              !["queued", "running"].includes(analysisStatus) && (
+                <button
+                  className="submit"
+                  type="button"
+                  onClick={analyzeGallery}
+                  disabled={busy || !briefSaved}
+                >
+                  {["partial_failure", "failed"].includes(analysisStatus)
+                    ? "Retry analysis"
+                    : "Analyze gallery"}
+                </button>
+              )}
+            {analysisFailures.length > 0 && (
+              <ul className="analysis-failures">
+                {analysisFailures.map((failure) => (
+                  <li key={failure.photoId}>
+                    <strong>{failure.originalFilename}</strong>
+                    <span>{failure.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {projectId && analysisStatus === "completed" && (
+            <InterpretationPanel projectId={projectId} target={Number(target) || null} />
+          )}
         </>
       )}
     </main>

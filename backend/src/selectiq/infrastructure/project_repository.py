@@ -5,8 +5,11 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -27,7 +30,16 @@ from sqlalchemy.orm import (
 )
 
 from selectiq.domain.enums import ProcessingState
-from selectiq.domain.models import CreativeBrief, ImportFailure, Photograph, Project
+from selectiq.domain.models import (
+    BriefInterpretation,
+    CreativeBrief,
+    GuidedScore,
+    ImportFailure,
+    PhotoFeature,
+    Photograph,
+    PhotoNote,
+    Project,
+)
 
 
 class ProjectRepository(Protocol):
@@ -44,6 +56,28 @@ class ProjectRepository(Protocol):
     def accepted_count(self, project_id: str) -> int: ...
 
     def import_failures(self, project_id: str) -> list[ImportFailure]: ...
+
+    def list_photos(self, project_id: str) -> list[Photograph]: ...
+
+    def get_feature(self, photo_id: str) -> PhotoFeature | None: ...
+
+    def mark_photo_processing(self, photo_id: str) -> None: ...
+
+    def mark_photo_failed(self, photo_id: str, code: str, message: str) -> None: ...
+
+    def save_feature(self, feature: PhotoFeature) -> None: ...
+
+    def update_relevance(self, photo_id: str, prompt_hash: str, score: float) -> None: ...
+
+    def save_interpretation(
+        self, interpretation: BriefInterpretation, scores: list[GuidedScore]
+    ) -> None: ...
+
+    def latest_interpretation(self, project_id: str) -> BriefInterpretation | None: ...
+
+    def guided_scores(self, interpretation_id: str) -> list[GuidedScore]: ...
+
+    def provider_call_count(self, project_id: str) -> int: ...
 
 
 class Base(DeclarativeBase):
@@ -94,7 +128,30 @@ class PhotoRow(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     processing_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    analysis_error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     project: Mapped[ProjectRow] = relationship(back_populates="photos")
+
+
+class PhotoFeatureRow(Base):
+    __tablename__ = "photo_features"
+    __table_args__ = (
+        CheckConstraint("embedding_dimension > 0", name="ck_feature_dimension_positive"),
+    )
+
+    photo_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True
+    )
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    checkpoint: Mapped[str] = mapped_column(String(256), nullable=False)
+    model_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding_path: Mapped[str] = mapped_column(String(4096), nullable=False)
+    prompt_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    brief_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class ImportFailureRow(Base):
@@ -111,6 +168,56 @@ class ImportFailureRow(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class BriefInterpretationRow(Base):
+    __tablename__ = "brief_interpretations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('completed', 'failed')", name="ck_brief_interpretations_status"
+        ),
+        Index("ix_brief_interpretations_project_id", "project_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    provider_called: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positive_descriptors: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    negative_descriptors: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    photo_notes: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class GuidedScoreRow(Base):
+    __tablename__ = "guided_scores"
+
+    interpretation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("brief_interpretations.id", ondelete="CASCADE"), primary_key=True
+    )
+    photo_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True
+    )
+    guided_score: Mapped[float] = mapped_column(Float, nullable=False)
+    descriptor_score: Mapped[float] = mapped_column(Float, nullable=False)
+    note_adjustment: Mapped[float] = mapped_column(Float, nullable=False)
+    brief_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    explanation: Mapped[str] = mapped_column(String(2048), nullable=False)
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
@@ -229,6 +336,199 @@ class SqlProjectRepository:
                 for row in rows
             ]
 
+    def list_photos(self, project_id: str) -> list[Photograph]:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return []
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(PhotoRow).where(PhotoRow.project_id == project_uuid).order_by(PhotoRow.id)
+            ).all()
+            return [self._to_photo(row) for row in rows]
+
+    def get_feature(self, photo_id: str) -> PhotoFeature | None:
+        photo_uuid = self._uuid(photo_id)
+        if photo_uuid is None:
+            return None
+        with self.session_factory() as session:
+            row = session.get(PhotoFeatureRow, photo_uuid)
+            return self._to_feature(row) if row is not None else None
+
+    def mark_photo_processing(self, photo_id: str) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoRow, UUID(photo_id))
+            if row is not None:
+                row.processing_state = ProcessingState.PROCESSING.value
+                row.analysis_error_code = None
+                row.analysis_error_message = None
+
+    def mark_photo_failed(self, photo_id: str, code: str, message: str) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoRow, UUID(photo_id))
+            if row is not None:
+                row.processing_state = ProcessingState.FAILED.value
+                row.analysis_error_code = code
+                row.analysis_error_message = message[:1024]
+
+    def save_feature(self, feature: PhotoFeature) -> None:
+        with self.session_factory.begin() as session:
+            photo_uuid = UUID(feature.photo_id)
+            row = session.get(PhotoFeatureRow, photo_uuid)
+            values = {
+                "model_name": feature.model_name,
+                "checkpoint": feature.checkpoint,
+                "model_fingerprint": feature.model_fingerprint,
+                "embedding_dimension": feature.embedding_dimension,
+                "embedding_path": str(feature.embedding_path),
+                "prompt_hash": feature.prompt_hash,
+                "brief_relevance": feature.brief_relevance,
+            }
+            if row is None:
+                session.add(PhotoFeatureRow(photo_id=photo_uuid, **values))
+            else:
+                for key, value in values.items():
+                    setattr(row, key, value)
+            photo = session.get(PhotoRow, photo_uuid)
+            if photo is not None:
+                photo.processing_state = ProcessingState.COMPLETED.value
+                photo.analysis_error_code = None
+                photo.analysis_error_message = None
+
+    def update_relevance(self, photo_id: str, prompt_hash: str, score: float) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoFeatureRow, UUID(photo_id))
+            if row is None:
+                raise ValueError(f"Photo {photo_id} has no embedding.")
+            row.prompt_hash = prompt_hash
+            row.brief_relevance = score
+
+    def save_interpretation(
+        self, interpretation: BriefInterpretation, scores: list[GuidedScore]
+    ) -> None:
+        project_uuid = UUID(interpretation.project_id)
+        with self._write_lock, self.session_factory.begin() as session:
+            sequence = session.scalar(
+                select(func.coalesce(func.max(BriefInterpretationRow.sequence), 0)).where(
+                    BriefInterpretationRow.project_id == project_uuid
+                )
+            )
+            interpretation_uuid = UUID(interpretation.id)
+            session.add(
+                BriefInterpretationRow(
+                    id=interpretation_uuid,
+                    project_id=project_uuid,
+                    prompt_hash=interpretation.prompt_hash,
+                    status=interpretation.status,
+                    provider=interpretation.provider,
+                    model_name=interpretation.model_name,
+                    provider_called=interpretation.provider_called,
+                    summary=interpretation.summary,
+                    positive_descriptors=list(interpretation.positive_descriptors),
+                    negative_descriptors=list(interpretation.negative_descriptors),
+                    photo_notes=[
+                        {"photo_id": note.photo_id, "effect": note.effect, "reason": note.reason}
+                        for note in interpretation.photo_notes
+                    ],
+                    raw_response=interpretation.raw_response,
+                    error_code=interpretation.error_code,
+                    error_message=(interpretation.error_message or None)
+                    and interpretation.error_message[:1024],
+                    duration_ms=interpretation.duration_ms,
+                    input_tokens=interpretation.input_tokens,
+                    output_tokens=interpretation.output_tokens,
+                    sequence=int(sequence or 0) + 1,
+                )
+            )
+            session.flush()
+            for score in scores:
+                session.add(
+                    GuidedScoreRow(
+                        interpretation_id=interpretation_uuid,
+                        photo_id=UUID(score.photo_id),
+                        guided_score=score.guided_score,
+                        descriptor_score=score.descriptor_score,
+                        note_adjustment=score.note_adjustment,
+                        brief_relevance=score.brief_relevance,
+                        explanation=score.explanation[:2048],
+                    )
+                )
+
+    def latest_interpretation(self, project_id: str) -> BriefInterpretation | None:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return None
+        with self.session_factory() as session:
+            row = session.scalars(
+                select(BriefInterpretationRow)
+                .where(BriefInterpretationRow.project_id == project_uuid)
+                .order_by(BriefInterpretationRow.sequence.desc())
+                .limit(1)
+            ).first()
+            return self._to_interpretation(row) if row is not None else None
+
+    def guided_scores(self, interpretation_id: str) -> list[GuidedScore]:
+        interpretation_uuid = self._uuid(interpretation_id)
+        if interpretation_uuid is None:
+            return []
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(GuidedScoreRow)
+                .where(GuidedScoreRow.interpretation_id == interpretation_uuid)
+                .order_by(GuidedScoreRow.guided_score.desc(), GuidedScoreRow.photo_id)
+            ).all()
+            return [
+                GuidedScore(
+                    photo_id=str(row.photo_id),
+                    guided_score=row.guided_score,
+                    descriptor_score=row.descriptor_score,
+                    note_adjustment=row.note_adjustment,
+                    brief_relevance=row.brief_relevance,
+                    explanation=row.explanation,
+                )
+                for row in rows
+            ]
+
+    def provider_call_count(self, project_id: str) -> int:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return 0
+        with self.session_factory() as session:
+            count = session.scalar(
+                select(func.count())
+                .select_from(BriefInterpretationRow)
+                .where(
+                    BriefInterpretationRow.project_id == project_uuid,
+                    BriefInterpretationRow.provider_called.is_(True),
+                )
+            )
+            return int(count or 0)
+
+    @staticmethod
+    def _to_interpretation(row: BriefInterpretationRow) -> BriefInterpretation:
+        return BriefInterpretation(
+            id=str(row.id),
+            project_id=str(row.project_id),
+            prompt_hash=row.prompt_hash,
+            status=row.status,
+            provider=row.provider,
+            model_name=row.model_name,
+            provider_called=row.provider_called,
+            summary=row.summary,
+            positive_descriptors=tuple(row.positive_descriptors or ()),
+            negative_descriptors=tuple(row.negative_descriptors or ()),
+            photo_notes=tuple(
+                PhotoNote(note["photo_id"], note["effect"], note["reason"])
+                for note in row.photo_notes or ()
+            ),
+            raw_response=row.raw_response,
+            error_code=row.error_code,
+            error_message=row.error_message,
+            duration_ms=row.duration_ms,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            created_at=row.created_at,
+        )
+
     @staticmethod
     def _to_photo(row: PhotoRow) -> Photograph:
         return Photograph(
@@ -241,6 +541,21 @@ class SqlProjectRepository:
             height=row.height,
             byte_size=row.byte_size,
             state=ProcessingState(row.processing_state),
+            analysis_error_code=row.analysis_error_code,
+            analysis_error_message=row.analysis_error_message,
+        )
+
+    @staticmethod
+    def _to_feature(row: PhotoFeatureRow) -> PhotoFeature:
+        return PhotoFeature(
+            photo_id=str(row.photo_id),
+            model_name=row.model_name,
+            checkpoint=row.checkpoint,
+            model_fingerprint=row.model_fingerprint,
+            embedding_dimension=row.embedding_dimension,
+            embedding_path=Path(row.embedding_path),
+            prompt_hash=row.prompt_hash,
+            brief_relevance=row.brief_relevance,
         )
 
     @staticmethod

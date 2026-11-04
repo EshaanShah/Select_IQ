@@ -9,9 +9,44 @@ The Alpha is a narrow, locally runnable, genuinely AI-driven vertical slice. The
 
 Every issue is complete only when its acceptance criteria are met, tests were observed failing before implementation, relevant tests pass afterward, and evidence is linked from GitHub.
 
+## Delivery dependency map
+
+Dependencies are implementation prerequisites, not merely the order in which the demo is shown.
+
+```text
+A-01 Gallery upload
+├── A-02 Prompt and target
+└── A-03 AI feature extraction
+    ├── A-04 LLM-guided brief interpretation
+    └── A-05 Pairwise feedback
+        └── A-06 Preference update
+
+A-02 + A-03 + A-04 + A-06
+└── A-07 Proposal generation
+    └── A-08 Review and export
+        └── A-09 End-to-end demo
+            └── A-10 Satisfaction collection
+```
+
+| Issue | Depends on | Unlocks |
+|---|---|---|
+| A-01 | None | A-02, A-03 |
+| A-02 | A-01 | A-04, A-07 |
+| A-03 | A-01 | A-04, A-05, A-06, A-07 |
+| A-04 | A-02, A-03 | A-07 |
+| A-05 | A-01, A-03 | A-06 |
+| A-06 | A-03, A-05 | A-07 |
+| A-07 | A-02, A-03, A-04, A-06 | A-08 |
+| A-08 | A-07 | A-09 |
+| A-09 | A-01 through A-08 | A-10 |
+| A-10 | A-09 | None |
+
 ---
 
 # A-01 — Gallery upload
+
+**Depends on:** None<br>
+**Unlocks:** A-02 (#2), A-03 (#3)
 
 ## User story
 
@@ -35,6 +70,9 @@ As a photographer, I want to upload JPEGs so that SelectIQ can analyze my galler
 
 # A-02 — Prompt and target
 
+**Depends on:** A-01 (#1)<br>
+**Unlocks:** A-04 (#4), A-07 (#7)
+
 ## User story
 
 As a photographer, I want to describe my story and set a target so that recommendations reflect my intent.
@@ -55,6 +93,9 @@ As a photographer, I want to describe my story and set a target so that recommen
 
 # A-03 — AI feature extraction
 
+**Depends on:** A-01 (#1)<br>
+**Unlocks:** A-04 (#4), A-05 (#5), A-06 (#6), A-07 (#7)
+
 ## User story
 
 As a photographer, I want images analyzed so that the product can compare visual content.
@@ -74,6 +115,9 @@ As a photographer, I want images analyzed so that the product can compare visual
 ---
 
 # A-04 — LLM-guided brief interpretation
+
+**Depends on:** A-02 (#2), A-03 (#3)<br>
+**Unlocks:** A-07 (#7)
 
 ## User story
 
@@ -96,6 +140,9 @@ As a photographer, I want AI to interpret my creative brief so that selection us
 
 # A-05 — Pairwise feedback
 
+**Depends on:** A-01 (#1), A-03 (#3)<br>
+**Unlocks:** A-06 (#6)
+
 ## User story
 
 As a photographer, I want to choose between A and B so that SelectIQ learns my preferences.
@@ -115,6 +162,9 @@ As a photographer, I want to choose between A and B so that SelectIQ learns my p
 
 # A-06 — Preference update
 
+**Depends on:** A-03 (#3), A-05 (#5)<br>
+**Unlocks:** A-07 (#7)
+
 ## User story
 
 As a photographer, I want my choices to affect rankings so that recommendations become personal.
@@ -133,6 +183,9 @@ As a photographer, I want my choices to affect rankings so that recommendations 
 ---
 
 # A-07 — Proposal generation
+
+**Depends on:** A-02 (#2), A-03 (#3), A-04 (#4), A-06 (#6)<br>
+**Unlocks:** A-08 (#8)
 
 ## User story
 
@@ -154,6 +207,9 @@ As a photographer, I want a small curated collection so that I can review the st
 
 # A-08 — Review and export
 
+**Depends on:** A-07 (#7)<br>
+**Unlocks:** A-09 (#9)
+
 ## User story
 
 As a photographer, I want to remove suggestions and export filenames so that I control my final selection.
@@ -173,6 +229,9 @@ As a photographer, I want to remove suggestions and export filenames so that I c
 
 # A-09 — End-to-end demo
 
+**Depends on:** A-01 through A-08 (#1–#8)<br>
+**Unlocks:** A-10 (#10)
+
 ## User story
 
 As a test participant, I want a complete guided flow so that I can evaluate SelectIQ.
@@ -190,6 +249,9 @@ As a test participant, I want a complete guided flow so that I can evaluate Sele
 ---
 
 # A-10 — Satisfaction collection
+
+**Depends on:** A-09 (#9)<br>
+**Unlocks:** None
 
 ## User story
 

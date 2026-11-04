@@ -32,10 +32,65 @@ python3.12 -m venv backend/.venv
 source backend/.venv/bin/activate
 python -m pip install -e 'backend[dev]'
 npm --prefix frontend install
-python3 -m alembic -c backend/alembic.ini upgrade head
+backend/.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
 ```
 
 Use `scripts/dev.sh` after dependencies are installed. Use `scripts/test.sh` to run the available test layers.
+
+## AI feature analysis
+
+Gallery analysis uses OpenCLIP `ViT-B-32` with the `laion2b_s34b_b79k` checkpoint. The
+model runs on Apple Metal when PyTorch reports MPS support and otherwise falls back to CPU.
+Weights are downloaded to the normal machine-level model cache, while normalized image and
+prompt embeddings are stored under ignored `var/cache/` paths. Re-running analysis validates
+and reuses those artifacts; failed photographs remain visibly failed and can be retried.
+
+Run the deterministic suite with `scripts/test.sh`. The real-model gate generates its own
+synthetic JPEG and can download the configured checkpoint:
+
+```bash
+SELECTIQ_RUN_REAL_MODEL_TESTS=1 \
+  PYTHONPATH=backend/src backend/.venv/bin/python -m pytest \
+  backend/tests/integration/test_openclip_smoke.py -m real_model -v
+```
+
+For a permissioned local gallery, compare cold and cached performance without committing the
+photographs or embeddings:
+
+```bash
+PYTHONPATH=backend/src backend/.venv/bin/python scripts/benchmark_gallery.py /path/to/gallery
+```
+
+## AI brief interpretation
+
+After analysis, SelectIQ asks a generative vision model to interpret the creative brief. By
+default this is Groq's free `qwen/qwen3.8-27b`. The model sees the brief, the target, each
+photograph's CLIP brief similarity, and up to three labeled contact sheets (photos are tagged
+`P01`, `P02`, ...). It must return strict JSON with a summary, visual descriptors to favor and
+avoid, and optional per-photo notes. The backend rejects malformed output and any label that
+is not in the gallery, embeds the descriptors with the same CLIP text encoder, and stores an
+auditable guided score per photograph:
+
+```
+guided = mean(similarity to favor descriptors) - mean(similarity to avoid descriptors) ± 0.05 note
+```
+
+If the call fails (missing key, timeout, rate limit, invalid output), the failure is stored with
+an error code and the UI shows "AI interpretation unavailable — using basic relevance" with a
+retry button. Each project may make at most `SELECTIQ_REASONER_MAX_REQUESTS_PER_PROJECT` model
+calls.
+
+Create a free key at console.groq.com and add `GROQ_API_KEY=...` to `.env`. Contact sheets of
+your photographs are sent to Groq, so use only galleries you have permission to share. Set
+`SELECTIQ_REASONER=fake` to work offline with a deterministic echo of the brief.
+
+Real-model check (calls Groq once with two synthetic images):
+
+```bash
+SELECTIQ_RUN_REAL_LLM_TESTS=1 GROQ_API_KEY=... \
+  PYTHONPATH=backend/src backend/.venv/bin/python -m pytest \
+  backend/tests/integration/test_groq_smoke.py -m real_llm -v
+```
 
 Do not commit participant galleries, private photographs, generated embeddings, exports, or credentials.
 

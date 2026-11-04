@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,7 +16,19 @@ class Settings(BaseSettings):
     max_file_size_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
     max_decoded_pixels: int = Field(default=60_000_000, ge=1)
     comparison_budget: int = 5
-    model_adapter: str = "fake"
+    model_adapter: str = "openclip"
+    embedding_model: str = "ViT-B-32"
+    embedding_checkpoint: str = "laion2b_s34b_b79k"
+    embedding_batch_size: int = Field(default=8, ge=1)
+    embedding_device: str = "auto"
+    feature_version: str = "1"
+    reasoner: str = "groq"
+    groq_api_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("GROQ_API_KEY", "SELECTIQ_GROQ_API_KEY")
+    )
+    groq_model: str = "qwen/qwen3.8-27b"
+    reasoner_timeout_seconds: float = Field(default=45, gt=0)
+    reasoner_max_requests_per_project: int = Field(default=20, ge=1)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
