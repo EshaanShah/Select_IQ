@@ -58,6 +58,18 @@ def test_next_pair_contract_returns_two_renderable_project_photos(
     assert body["photoB"]["imageUrl"].startswith(f"/projects/{project_id}/photos/")
 
 
+def test_next_pair_for_unknown_project_returns_not_found(
+    project_service: ProjectService,
+) -> None:
+    client = make_client(project_service)
+
+    response = client.get(
+        "/projects/00000000-0000-0000-0000-000000000000/comparisons/next"
+    )
+
+    assert response.status_code == 404
+
+
 def test_photo_content_contract_returns_the_uploaded_jpeg(
     project_service: ProjectService, jpeg_bytes: bytes
 ) -> None:

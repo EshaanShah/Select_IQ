@@ -164,6 +164,90 @@ def test_sequence_increments_and_flow_stops_at_demo_budget(
     assert service.next_pair(project.id) is None
 
 
+def test_choice_history_survives_service_reconstruction(
+    project_service: ProjectService, jpeg_bytes: bytes
+) -> None:
+    project = project_service.create_project()
+    add_photos(project_service, project.id, jpeg_bytes, 3)
+    first_service = comparison_service(project_service)
+    pair = first_service.next_pair(project.id)
+    assert pair is not None
+    saved = first_service.record_choice(
+        project.id, pair.photo_a_id, pair.photo_b_id, winner_id=pair.photo_a_id
+    )
+
+    reconstructed_service = comparison_service(project_service)
+
+    assert reconstructed_service.choices(project.id) == [saved]
+    next_pair = reconstructed_service.next_pair(project.id)
+    assert next_pair is not None
+    assert next_pair.sequence == 2
+    assert frozenset((next_pair.photo_a_id, next_pair.photo_b_id)) != frozenset(
+        (pair.photo_a_id, pair.photo_b_id)
+    )
+
+
+def test_choice_is_rejected_after_demo_budget_is_reached(
+    project_service: ProjectService, jpeg_bytes: bytes
+) -> None:
+    project = project_service.create_project()
+    photo_ids = add_photos(project_service, project.id, jpeg_bytes, 6)
+    service = comparison_service(project_service, budget=5)
+    used_pairs: set[frozenset[str]] = set()
+
+    for _ in range(5):
+        pair = service.next_pair(project.id)
+        assert pair is not None
+        used_pairs.add(frozenset((pair.photo_a_id, pair.photo_b_id)))
+        service.record_choice(
+            project.id, pair.photo_a_id, pair.photo_b_id, winner_id=pair.photo_a_id
+        )
+
+    unused_pair = next(
+        (first, second)
+        for index, first in enumerate(photo_ids)
+        for second in photo_ids[index + 1 :]
+        if frozenset((first, second)) not in used_pairs
+    )
+    with pytest.raises(ValidationError, match="(?i)complete|budget"):
+        service.record_choice(
+            project.id, unused_pair[0], unused_pair[1], winner_id=unused_pair[0]
+        )
+
+
+def test_flow_stops_when_unique_pairs_are_exhausted_before_budget(
+    project_service: ProjectService, jpeg_bytes: bytes
+) -> None:
+    project = project_service.create_project()
+    add_photos(project_service, project.id, jpeg_bytes, 2)
+    service = comparison_service(project_service, budget=5)
+    only_pair = service.next_pair(project.id)
+    assert only_pair is not None
+    service.record_choice(
+        project.id,
+        only_pair.photo_a_id,
+        only_pair.photo_b_id,
+        winner_id=only_pair.photo_a_id,
+    )
+
+    assert len(service.choices(project.id)) == 1
+    assert service.next_pair(project.id) is None
+
+
+def test_next_pair_is_stable_until_a_choice_is_recorded(
+    project_service: ProjectService, jpeg_bytes: bytes
+) -> None:
+    project = project_service.create_project()
+    add_photos(project_service, project.id, jpeg_bytes, 4)
+    service = comparison_service(project_service)
+
+    first_read = service.next_pair(project.id)
+    second_read = service.next_pair(project.id)
+
+    assert first_read is not None
+    assert second_read == first_read
+
+
 def test_choices_never_leak_between_projects(
     project_service: ProjectService, jpeg_bytes: bytes
 ) -> None:

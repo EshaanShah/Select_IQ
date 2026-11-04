@@ -129,6 +129,38 @@ describe("pairwise feedback", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/comparison could not be loaded/i);
   });
+
+  it("keeps the current pair visible and reports an error when saving fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(firstPair))
+      .mockResolvedValueOnce(response({ detail: "The choice could not be saved." }, 500));
+    render(<ComparisonPage projectId="project-1" />);
+    await screen.findByAltText("candid-reaction.jpg");
+
+    fireEvent.click(screen.getByRole("button", { name: /prefer candid-reaction.jpg/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/choice could not be saved/i);
+    expect(screen.getByAltText("candid-reaction.jpg")).toBeInTheDocument();
+    expect(screen.getByAltText("formal-portrait.jpg")).toBeInTheDocument();
+    expect(screen.getByText(/comparison 1 of 5/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("prevents duplicate submissions while a choice is being saved", async () => {
+    const pendingSave = deferred<Response>();
+    fetchMock
+      .mockResolvedValueOnce(response(firstPair))
+      .mockReturnValueOnce(pendingSave.promise);
+    render(<ComparisonPage projectId="project-1" />);
+    await screen.findByAltText("candid-reaction.jpg");
+    const winnerButton = screen.getByRole("button", { name: /prefer candid-reaction.jpg/i });
+
+    fireEvent.click(winnerButton);
+    fireEvent.click(winnerButton);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(winnerButton).toBeDisabled();
+  });
 });
 
 function response(body: unknown, status = 200): Response {
@@ -137,4 +169,12 @@ function response(body: unknown, status = 200): Response {
     status,
     json: async () => body,
   } as Response;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
