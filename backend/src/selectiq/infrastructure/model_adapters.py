@@ -124,8 +124,3 @@ class OpenClipVisualEncoder:
         result = encoded[0].detach().float().cpu().numpy()
         self.dimension = int(result.size)
         return result
-
-
-class BriefReasoner(Protocol):
-    def interpret(self, brief: str) -> dict[str, object]: ...
-

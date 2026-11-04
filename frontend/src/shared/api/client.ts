@@ -1,6 +1,8 @@
 import type {
   AnalysisStarted,
   ImportResult,
+  Interpretation,
+  InterpretationStarted,
   ProjectCreated,
   ProjectStatus,
   PromptTargetResult,
@@ -56,4 +58,14 @@ export function savePromptAndTarget(
 
 export function startAnalysis(projectId: string): Promise<AnalysisStarted> {
   return apiRequest<AnalysisStarted>(`/projects/${projectId}/analyze`, { method: "POST" });
+}
+
+export function getInterpretation(projectId: string): Promise<Interpretation> {
+  return apiRequest<Interpretation>(`/projects/${projectId}/interpretation`);
+}
+
+export function startInterpretation(projectId: string): Promise<InterpretationStarted> {
+  return apiRequest<InterpretationStarted>(`/projects/${projectId}/interpretation`, {
+    method: "POST",
+  });
 }

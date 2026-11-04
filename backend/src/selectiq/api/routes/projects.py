@@ -79,6 +79,44 @@ class AnalysisStarted(CamelModel):
     analysisStatus: str
 
 
+class PhotoNoteResponse(CamelModel):
+    photoId: str
+    originalFilename: str
+    effect: str
+    reason: str
+
+
+class RankingEntryResponse(CamelModel):
+    photoId: str
+    originalFilename: str
+    rank: int
+    guidedScore: float | None
+    briefRelevance: float | None
+    explanation: str | None
+
+
+class InterpretationResponse(CamelModel):
+    projectId: str
+    status: str
+    provider: str | None = None
+    model: str | None = None
+    summary: str | None = None
+    positiveDescriptors: list[str] = []
+    negativeDescriptors: list[str] = []
+    photoNotes: list[PhotoNoteResponse] = []
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    createdAt: datetime | None = None
+    durationMs: int | None = None
+    rankingBasis: str
+    ranking: list[RankingEntryResponse]
+
+
+class InterpretationStarted(CamelModel):
+    projectId: str
+    status: str
+
+
 class PromptTargetRequest(CamelModel):
     prompt: str
     target: StrictInt
@@ -247,3 +285,68 @@ def analyze_project(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     response.status_code = status.HTTP_202_ACCEPTED if queued else status.HTTP_200_OK
     return AnalysisStarted(projectId=project_id, analysisStatus=analysis_status)
+
+
+@router.get("/{project_id}/interpretation", response_model=InterpretationResponse)
+def get_interpretation(
+    project_id: str, service: Annotated[AnalysisService, Depends(analysis_service)]
+) -> InterpretationResponse:
+    try:
+        view = service.interpretation(project_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    item = view.interpretation
+    filename = view.filenames.get
+    return InterpretationResponse(
+        projectId=project_id,
+        status=view.status,
+        provider=item.provider if item else None,
+        model=item.model_name if item else None,
+        summary=item.summary if item else None,
+        positiveDescriptors=list(item.positive_descriptors) if item else [],
+        negativeDescriptors=list(item.negative_descriptors) if item else [],
+        photoNotes=[
+            PhotoNoteResponse(
+                photoId=note.photo_id,
+                originalFilename=filename(note.photo_id, ""),
+                effect=note.effect,
+                reason=note.reason,
+            )
+            for note in (item.photo_notes if item else ())
+        ],
+        errorCode=item.error_code if item else None,
+        errorMessage=item.error_message if item else None,
+        createdAt=item.created_at if item else None,
+        durationMs=item.duration_ms if item else None,
+        rankingBasis=view.ranking.basis,
+        ranking=[
+            RankingEntryResponse(
+                photoId=entry.photo_id,
+                originalFilename=filename(entry.photo_id, ""),
+                rank=entry.rank,
+                guidedScore=entry.guided_score,
+                briefRelevance=entry.brief_relevance,
+                explanation=entry.explanation,
+            )
+            for entry in view.ranking.entries
+        ],
+    )
+
+
+@router.post(
+    "/{project_id}/interpretation",
+    response_model=InterpretationStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def start_interpretation(
+    project_id: str, service: Annotated[AnalysisService, Depends(analysis_service)]
+) -> InterpretationStarted:
+    try:
+        started = service.start_interpretation(project_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    return InterpretationStarted(projectId=project_id, status=started)

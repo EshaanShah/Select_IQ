@@ -61,5 +61,36 @@ photographs or embeddings:
 PYTHONPATH=backend/src backend/.venv/bin/python scripts/benchmark_gallery.py /path/to/gallery
 ```
 
+## AI brief interpretation
+
+After analysis, SelectIQ asks a generative vision model to interpret the creative brief. By
+default this is Groq's free `qwen/qwen3.8-27b`. The model sees the brief, the target, each
+photograph's CLIP brief similarity, and up to three labeled contact sheets (photos are tagged
+`P01`, `P02`, ...). It must return strict JSON with a summary, visual descriptors to favor and
+avoid, and optional per-photo notes. The backend rejects malformed output and any label that
+is not in the gallery, embeds the descriptors with the same CLIP text encoder, and stores an
+auditable guided score per photograph:
+
+```
+guided = mean(similarity to favor descriptors) - mean(similarity to avoid descriptors) ± 0.05 note
+```
+
+If the call fails (missing key, timeout, rate limit, invalid output), the failure is stored with
+an error code and the UI shows "AI interpretation unavailable — using basic relevance" with a
+retry button. Each project may make at most `SELECTIQ_REASONER_MAX_REQUESTS_PER_PROJECT` model
+calls.
+
+Create a free key at console.groq.com and add `GROQ_API_KEY=...` to `.env`. Contact sheets of
+your photographs are sent to Groq, so use only galleries you have permission to share. Set
+`SELECTIQ_REASONER=fake` to work offline with a deterministic echo of the brief.
+
+Real-model check (calls Groq once with two synthetic images):
+
+```bash
+SELECTIQ_RUN_REAL_LLM_TESTS=1 GROQ_API_KEY=... \
+  PYTHONPATH=backend/src backend/.venv/bin/python -m pytest \
+  backend/tests/integration/test_groq_smoke.py -m real_llm -v
+```
+
 Do not commit participant galleries, private photographs, generated embeddings, exports, or credentials.
 
