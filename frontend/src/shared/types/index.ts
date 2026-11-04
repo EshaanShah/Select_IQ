@@ -143,6 +143,7 @@ export type Recommendation = {
   rank: number;
   score: number;
   contributions: SignalContributions;
+  removed: boolean;
 };
 
 export type Proposal = {
@@ -151,6 +152,7 @@ export type Proposal = {
   version: number;
   targetCount: number;
   selectedCount: number;
+  removedCount: number;
   isGenuineAi: boolean;
   provenance: ProposalProvenance;
   parameters: Record<string, unknown>;

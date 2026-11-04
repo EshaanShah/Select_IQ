@@ -25,6 +25,7 @@ export function proposalFixture(overrides: Partial<Proposal> = {}): Proposal {
     version: 1,
     targetCount: 5,
     selectedCount: 5,
+    removedCount: 0,
     isGenuineAi: false,
     provenance: provenanceFixture(),
     parameters: { weights: { prompt_relevance: 1, ai_guidance: 1, preference: 1 } },
@@ -35,6 +36,7 @@ export function proposalFixture(overrides: Partial<Proposal> = {}): Proposal {
       rank: index + 1,
       score: 2 - index * 0.25,
       contributions: { promptRelevance: 0.5, aiGuidance: 0.5, preference: 1 - index * 0.25 },
+      removed: false,
     })),
     ...overrides,
   };
@@ -42,4 +44,18 @@ export function proposalFixture(overrides: Partial<Proposal> = {}): Proposal {
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
+}
+
+export function withRemoved(proposal: Proposal, photoIds: string[]): Proposal {
+  const recommendations = proposal.recommendations.map((item) => ({
+    ...item,
+    removed: photoIds.includes(item.photoId),
+  }));
+  const removedCount = recommendations.filter((item) => item.removed).length;
+  return {
+    ...proposal,
+    recommendations,
+    removedCount,
+    selectedCount: recommendations.length - removedCount,
+  };
 }
