@@ -32,7 +32,7 @@ python3.12 -m venv backend/.venv
 source backend/.venv/bin/activate
 python -m pip install -e 'backend[dev]'
 npm --prefix frontend install
-python3 -m alembic -c backend/alembic.ini upgrade head
+backend/.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
 ```
 
 Use `scripts/dev.sh` after dependencies are installed. Use `scripts/test.sh` to run the available test layers.
