@@ -3,8 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from selectiq.api.dependencies import get_comparison_service
+from selectiq.api.dependencies import get_comparison_service, get_preference_service
 from selectiq.application.comparison_service import ComparisonService
+from selectiq.application.preference_service import PreferenceService
 from selectiq.domain.errors import (
     DuplicateComparisonError,
     ProjectNotFoundError,
@@ -12,6 +13,7 @@ from selectiq.domain.errors import (
 )
 
 router = APIRouter(prefix="/projects/{project_id}/comparisons", tags=["comparisons"])
+preferences_router = APIRouter(prefix="/projects/{project_id}", tags=["preferences"])
 
 
 class ComparisonPhotoResponse(BaseModel):
@@ -44,8 +46,25 @@ class ComparisonChoiceResponse(BaseModel):
     budget: int
 
 
+class PreferenceScoreResponse(BaseModel):
+    photoId: str
+    score: float
+
+
+class ProjectPreferencesResponse(BaseModel):
+    projectId: str
+    comparisonsUsed: int
+    method: str
+    modelVersion: str
+    scores: list[PreferenceScoreResponse]
+
+
 def comparison_service() -> ComparisonService:
     return get_comparison_service()
+
+
+def preference_service() -> PreferenceService:
+    return get_preference_service()
 
 
 @router.get("/next", response_model=NextComparisonResponse)
@@ -115,5 +134,29 @@ def save_comparison(
         sequence=choice.sequence,
         completedCount=choice.sequence,
         budget=service.comparison_budget,
+    )
+
+
+@preferences_router.get("/preferences", response_model=ProjectPreferencesResponse)
+def project_preferences(
+    project_id: str,
+    service: Annotated[PreferenceService, Depends(preference_service)],
+) -> ProjectPreferencesResponse:
+    try:
+        result = service.scores(project_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    ordered = sorted(result.scores.items(), key=lambda item: (-item[1], item[0]))
+    return ProjectPreferencesResponse(
+        projectId=project_id,
+        comparisonsUsed=result.comparisons_used,
+        method=result.method,
+        modelVersion=result.model_version,
+        scores=[
+            PreferenceScoreResponse(photoId=photo_id, score=score)
+            for photo_id, score in ordered
+        ],
     )
 
