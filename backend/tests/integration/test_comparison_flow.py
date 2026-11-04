@@ -4,8 +4,11 @@ import pytest
 
 from selectiq.application.comparison_service import ComparisonService
 from selectiq.application.project_service import PhotoUpload, ProjectService
-from selectiq.domain.errors import ProjectNotFoundError, ValidationError
 from selectiq.domain.enums import ProcessingState
+from selectiq.domain.errors import ProjectNotFoundError, ValidationError
+from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
+from selectiq.infrastructure.model_adapters import DeterministicVisualEncoder
+from selectiq.intelligence.feature_extractor import FeatureExtractor
 from selectiq.intelligence.pair_selector import DeterministicPairSelector
 
 
@@ -77,6 +80,38 @@ def test_losing_photo_remains_eligible_and_unchanged(
     loser = next(photo for photo in restored.photos if photo.id == pair.photo_b_id)
     assert loser.state == ProcessingState.PENDING
     assert loser in restored.photos
+
+
+def test_choice_preserves_completed_analysis_and_cached_features(
+    project_service: ProjectService, jpeg_bytes: bytes, tmp_path
+) -> None:
+    project = project_service.create_project()
+    add_photos(project_service, project.id, jpeg_bytes, 3)
+    extractor = FeatureExtractor(
+        project_service.repository,
+        NumpyEmbeddingCache(tmp_path / "embedding-cache"),
+        DeterministicVisualEncoder(dimension=8),
+    )
+    extractor.analyze(project_service.repository.list_photos(project.id))
+    analyzed_photos = project_service.repository.list_photos(project.id)
+    features_before = {
+        photo.id: project_service.repository.get_feature(photo.id) for photo in analyzed_photos
+    }
+    service = comparison_service(project_service)
+    pair = service.next_pair(project.id)
+    assert pair is not None
+
+    service.record_choice(project.id, pair.photo_a_id, pair.photo_b_id, winner_id=pair.photo_a_id)
+
+    restored = {photo.id: photo for photo in project_service.get_project(project.id).photos}
+    assert restored[pair.photo_a_id].state == ProcessingState.COMPLETED
+    assert restored[pair.photo_b_id].state == ProcessingState.COMPLETED
+    assert (
+        project_service.repository.get_feature(pair.photo_a_id) == features_before[pair.photo_a_id]
+    )
+    assert (
+        project_service.repository.get_feature(pair.photo_b_id) == features_before[pair.photo_b_id]
+    )
 
 
 @pytest.mark.parametrize("unknown_position", ["photo_a", "photo_b", "winner"])
