@@ -477,3 +477,42 @@ describe("guided demo", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("guided demo after reload", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+  });
+
+  it("restores saved A/B progress into the step guide", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/status")) {
+        return response({
+          projectId: "project-1",
+          acceptedCount: 18,
+          remainingCapacity: 12,
+          failures: [],
+          prompt: "Peak action.",
+          target: 5,
+          analysisStatus: "completed",
+          analysisTotal: 18,
+          analysisCompleted: 18,
+          analysisFailed: 0,
+          analysisFailures: [],
+        });
+      }
+      if (url.endsWith("/comparisons/next")) {
+        return response({ projectId: "project-1", sequence: 6, budget: 5, completed: true, photoA: null, photoB: null });
+      }
+      if (url.endsWith("/interpretation")) return response({ detail: "unused" }, 404);
+      if (url.endsWith("/recommendations")) return response({ detail: "none" }, 404);
+      throw new Error(`Unexpected request ${url}`);
+    });
+
+    render(<App />);
+
+    const steps = await screen.findByRole("list", { name: "Demo steps" });
+    await waitFor(() => expect(steps).toHaveTextContent("Done: 5 of 5 choices"));
+  });
+});
