@@ -86,4 +86,5 @@ The real-AI scenario expects "AI-informed proposal" with ViT-B-32 and Groq.
 | "Analyze the gallery before generating a proposal." | Run step 3 first |
 | "Only N photographs finished analysis…" | Some photos failed analysis. **Retry analysis**, or lower the target |
 | "AI interpretation unavailable — using basic relevance" | Groq failed: no key, a rate limit, or a timeout. Use **Retry AI interpretation**, then generate again |
+| "Groq returned HTTP 429: Rate limit reached … (ITPM): Limit 7000" | The free tier allows about 7,000 input tokens per minute, and one 18-photo interpretation uses about 4,600. Wait about 20 seconds and **Retry AI interpretation**. Don't run the real-AI Playwright test right before a live demo |
 | A CORS error in the browser console | Usually a 500 from the API. Check the API terminal; an un-migrated database is the most common cause (`scripts/dev.sh` migrates on start) |
