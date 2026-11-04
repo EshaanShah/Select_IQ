@@ -10,6 +10,10 @@ class ProjectNotFoundError(SelectIQError):
     """Raised when a project ID does not belong to a stored project."""
 
 
+class DuplicateComparisonError(ValidationError):
+    """Raised when a project submits the same unordered photo pair twice."""
+
+
 class ImportValidationError(ValidationError):
     """A single uploaded file failed an ingestion rule."""
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, StrictInt
 
 from selectiq.api.dependencies import get_analysis_service, get_project_service
@@ -179,6 +180,22 @@ def upload_photos(
         batchRejectedCount=len(rejected),
         acceptedCount=result.accepted_count,
     )
+
+
+@router.get("/{project_id}/photos/{photo_id}/content", response_class=FileResponse)
+def photo_content(
+    project_id: str,
+    photo_id: str,
+    service: Annotated[ProjectService, Depends(project_service)],
+) -> FileResponse:
+    try:
+        project = service.get_project(project_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    photo = next((item for item in project.photos if item.id == photo_id), None)
+    if photo is None or not photo.working_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo was not found.")
+    return FileResponse(photo.working_path, media_type="image/jpeg")
 
 
 @router.post("/{project_id}/brief", response_model=PromptTargetResponse)

@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     create_engine,
     func,
@@ -32,6 +33,7 @@ from sqlalchemy.orm import (
 from selectiq.domain.enums import ProcessingState
 from selectiq.domain.models import (
     BriefInterpretation,
+    ComparisonChoice,
     CreativeBrief,
     GuidedScore,
     ImportFailure,
@@ -78,6 +80,12 @@ class ProjectRepository(Protocol):
     def guided_scores(self, interpretation_id: str) -> list[GuidedScore]: ...
 
     def provider_call_count(self, project_id: str) -> int: ...
+
+    def comparison_choices(self, project_id: str) -> list[ComparisonChoice]: ...
+
+    def has_comparison(self, project_id: str, photo_a_id: str, photo_b_id: str) -> bool: ...
+
+    def save_comparison(self, choice: ComparisonChoice) -> None: ...
 
 
 class Base(DeclarativeBase):
@@ -218,6 +226,36 @@ class GuidedScoreRow(Base):
     note_adjustment: Mapped[float] = mapped_column(Float, nullable=False)
     brief_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
     explanation: Mapped[str] = mapped_column(String(2048), nullable=False)
+
+
+class ComparisonChoiceRow(Base):
+    __tablename__ = "comparison_choices"
+    __table_args__ = (
+        CheckConstraint("winner_id != loser_id", name="ck_comparison_distinct_photos"),
+        UniqueConstraint("project_id", "sequence", name="uq_comparison_project_sequence"),
+        UniqueConstraint(
+            "project_id", "photo_low_id", "photo_high_id", name="uq_comparison_project_pair"
+        ),
+        Index("ix_comparison_choices_project_id", "project_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    winner_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), nullable=False
+    )
+    loser_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), nullable=False
+    )
+    photo_low_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    photo_high_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
@@ -502,6 +540,60 @@ class SqlProjectRepository:
                 )
             )
             return int(count or 0)
+
+    def comparison_choices(self, project_id: str) -> list[ComparisonChoice]:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return []
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(ComparisonChoiceRow)
+                .where(ComparisonChoiceRow.project_id == project_uuid)
+                .order_by(ComparisonChoiceRow.sequence)
+            ).all()
+            return [
+                ComparisonChoice(
+                    project_id=str(row.project_id),
+                    winner_id=str(row.winner_id),
+                    loser_id=str(row.loser_id),
+                    sequence=row.sequence,
+                    reason=row.reason,
+                )
+                for row in rows
+            ]
+
+    def has_comparison(self, project_id: str, photo_a_id: str, photo_b_id: str) -> bool:
+        project_uuid = self._uuid(project_id)
+        photo_ids = sorted((UUID(photo_a_id), UUID(photo_b_id)), key=str)
+        if project_uuid is None:
+            return False
+        with self.session_factory() as session:
+            count = session.scalar(
+                select(func.count())
+                .select_from(ComparisonChoiceRow)
+                .where(
+                    ComparisonChoiceRow.project_id == project_uuid,
+                    ComparisonChoiceRow.photo_low_id == photo_ids[0],
+                    ComparisonChoiceRow.photo_high_id == photo_ids[1],
+                )
+            )
+            return bool(count)
+
+    def save_comparison(self, choice: ComparisonChoice) -> None:
+        ordered = sorted((UUID(choice.winner_id), UUID(choice.loser_id)), key=str)
+        with self._write_lock, self.session_factory.begin() as session:
+            session.add(
+                ComparisonChoiceRow(
+                    id=uuid4(),
+                    project_id=UUID(choice.project_id),
+                    winner_id=UUID(choice.winner_id),
+                    loser_id=UUID(choice.loser_id),
+                    photo_low_id=ordered[0],
+                    photo_high_id=ordered[1],
+                    sequence=choice.sequence,
+                    reason=choice.reason,
+                )
+            )
 
     @staticmethod
     def _to_interpretation(row: BriefInterpretationRow) -> BriefInterpretation:

@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from selectiq.application.analysis_service import AnalysisService
+from selectiq.application.comparison_service import ComparisonService
 from selectiq.application.project_service import ProjectService
 from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
 from selectiq.infrastructure.image_store import LocalImageStore
@@ -14,6 +15,7 @@ from selectiq.infrastructure.reasoners import (
 from selectiq.infrastructure.settings import Settings
 from selectiq.intelligence.brief_interpreter import BriefInterpreter
 from selectiq.intelligence.feature_extractor import FeatureExtractor
+from selectiq.intelligence.pair_selector import DeterministicPairSelector
 from selectiq.jobs.analyze_gallery import GalleryAnalysisRunner
 
 
@@ -80,3 +82,11 @@ def build_reasoner(settings: Settings) -> BriefReasoner:
 @lru_cache
 def get_analysis_service() -> AnalysisService:
     return AnalysisService(get_repository(), get_analysis_runner())
+
+
+@lru_cache
+def get_comparison_service() -> ComparisonService:
+    settings = get_settings()
+    return ComparisonService(
+        get_repository(), DeterministicPairSelector(), settings.comparison_budget
+    )

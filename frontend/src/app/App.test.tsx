@@ -256,16 +256,62 @@ describe("brief interpretation", () => {
     analysisModel: "ViT-B-32",
   };
 
-  function route(interpretation: unknown, posted?: unknown) {
+  function route(interpretation: unknown, posted?: unknown, nextComparison?: unknown) {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.endsWith("/status")) return response(completedStatus);
       if (url.endsWith("/interpretation") && init?.method === "POST") {
         return response(posted ?? { projectId: "project-1", status: "queued" }, 202);
       }
       if (url.endsWith("/interpretation")) return response(interpretation);
+      if (url.endsWith("/comparisons/next") && nextComparison) {
+        return response(nextComparison);
+      }
       throw new Error(`Unexpected request ${url}`);
     });
   }
+
+  it("opens the first comparison from the completed analysis workflow", async () => {
+    route(
+      {
+        projectId: "project-1",
+        status: "not_started",
+        provider: null,
+        model: null,
+        summary: null,
+        positiveDescriptors: [],
+        negativeDescriptors: [],
+        photoNotes: [],
+        errorCode: null,
+        errorMessage: null,
+        rankingBasis: "brief_relevance",
+        ranking: [],
+      },
+      undefined,
+      {
+        projectId: "project-1",
+        sequence: 1,
+        budget: 5,
+        completed: false,
+        photoA: {
+          photoId: "photo-a",
+          originalFilename: "candid.jpg",
+          imageUrl: "/projects/project-1/photos/photo-a/content",
+        },
+        photoB: {
+          photoId: "photo-b",
+          originalFilename: "portrait.jpg",
+          imageUrl: "/projects/project-1/photos/photo-b/content",
+        },
+      },
+    );
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start comparisons" }));
+
+    expect(await screen.findByAltText("candid.jpg")).toBeInTheDocument();
+    expect(screen.getByAltText("portrait.jpg")).toBeInTheDocument();
+    expect(screen.getByText(/comparison 1 of 5/i)).toBeInTheDocument();
+  });
 
   it("shows the model's auditable interpretation and guided ranking", async () => {
     route({

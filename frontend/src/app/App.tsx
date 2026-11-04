@@ -8,6 +8,7 @@ import {
   uploadPhotos,
 } from "../shared/api/client";
 import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
+import { ComparisonPage } from "../features/comparisons/ComparisonPage";
 import type {
   AnalysisFailure,
   AnalysisStatus,
@@ -40,6 +41,7 @@ export function App() {
   const [analysisCompleted, setAnalysisCompleted] = useState(0);
   const [analysisFailures, setAnalysisFailures] = useState<AnalysisFailure[]>([]);
   const [analysisModel, setAnalysisModel] = useState<string | null>(null);
+  const [comparisonsStarted, setComparisonsStarted] = useState(false);
 
   function applyStatus(status: ProjectStatus) {
     setAcceptedCount(status.acceptedCount);
@@ -385,7 +387,24 @@ export function App() {
           </section>
 
           {projectId && analysisStatus === "completed" && (
-            <InterpretationPanel projectId={projectId} target={Number(target) || null} />
+            <>
+              <InterpretationPanel projectId={projectId} target={Number(target) || null} />
+              {!comparisonsStarted ? (
+                <section className="analysis-card">
+                  <h2>Pairwise feedback</h2>
+                  <p>Choose between photographs to teach SelectIQ your preferences.</p>
+                  <button
+                    className="submit"
+                    type="button"
+                    onClick={() => setComparisonsStarted(true)}
+                  >
+                    Start comparisons
+                  </button>
+                </section>
+              ) : (
+                <ComparisonPage projectId={projectId} />
+              )}
+            </>
           )}
         </>
       )}
