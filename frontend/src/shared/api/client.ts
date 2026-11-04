@@ -6,9 +6,20 @@ import type {
   ProjectCreated,
   ProjectStatus,
   PromptTargetResult,
+  Proposal,
 } from "../types";
 
 const apiBaseUrl = import.meta.env.VITE_SELECTIQ_API_URL ?? "http://localhost:8000";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, init);
@@ -16,12 +27,12 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   if (!response.ok) {
     let detail = `SelectIQ API request failed with status ${response.status}`;
     try {
-      const payload = (await response.json()) as { detail?: string };
-      detail = payload.detail ?? detail;
+      const payload = (await response.json()) as { detail?: unknown };
+      if (typeof payload.detail === "string") detail = payload.detail;
     } catch {
       // The fallback includes the status when an upstream response is not JSON.
     }
-    throw new Error(detail);
+    throw new ApiError(detail, response.status);
   }
 
   return (await response.json()) as T;
@@ -68,4 +79,17 @@ export function startInterpretation(projectId: string): Promise<InterpretationSt
   return apiRequest<InterpretationStarted>(`/projects/${projectId}/interpretation`, {
     method: "POST",
   });
+}
+
+export async function getProposal(projectId: string): Promise<Proposal | null> {
+  try {
+    return await apiRequest<Proposal>(`/projects/${projectId}/recommendations`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export function generateProposal(projectId: string): Promise<Proposal> {
+  return apiRequest<Proposal>(`/projects/${projectId}/recommendations`, { method: "POST" });
 }

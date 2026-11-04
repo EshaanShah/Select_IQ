@@ -61,6 +61,21 @@ h2 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.55rem; font-weig
 .comparison-grid button { border: 0; border-radius: 10px; padding: 12px; background: #245e40; color: white; cursor: pointer; font-weight: 700; }
 .comparison-grid button:disabled { cursor: not-allowed; opacity: 0.5; }
 
+.proposal { margin-top: 20px; }
+.target-row { display: flex; gap: 12px; align-items: center; margin-top: 24px; }
+.target-summary { flex: 1; margin: 0; color: #3e4a43; font-weight: 650; }
+.target-row .submit { width: auto; min-width: 220px; }
+.hint { margin: 10px 0 0; color: #8a5a1f; font-size: 0.9rem; }
+.provenance { display: grid; gap: 4px; margin-top: 20px; padding: 12px 14px; border-radius: 9px; font-size: 0.9rem; }
+.provenance small { opacity: 0.85; }
+.provenance.test_signals { background: #fdf3dc; color: #6b4a12; border: 1px dashed #d9b867; }
+.provenance.partial_ai { background: #fff6e8; color: #7a4b12; border: 1px solid #ecc58a; }
+.provenance.ai_informed { background: #e8f2eb; color: #225e3d; border: 1px solid #b9d6c3; }
+.ranked { margin: 0; padding: 0; list-style: none; }
+.ranked li { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid #e7e2d8; }
+.ranked .rank { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e8f2eb; color: #225e3d; font-weight: 800; font-size: 0.85rem; }
+.ranked .score { color: #707871; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 @media (max-width: 600px) {
   .shell { padding: 40px 0; }
   .card-heading { flex-direction: column; }

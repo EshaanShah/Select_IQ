@@ -9,6 +9,7 @@ import {
 } from "../shared/api/client";
 import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
 import { ComparisonPage } from "../features/comparisons/ComparisonPage";
+import { ProposalPanel } from "../features/gallery-review/ProposalPanel";
 import type {
   AnalysisFailure,
   AnalysisStatus,
@@ -194,6 +195,7 @@ export function App() {
   }
 
   const remaining = Math.max(galleryCapacity - acceptedCount, 0);
+  const savedTarget = briefSaved && /^\d+$/.test(target) ? Number(target) : null;
 
   return (
     <main className="shell">
@@ -403,6 +405,9 @@ export function App() {
                 </section>
               ) : (
                 <ComparisonPage projectId={projectId} />
+              )}
+              {savedTarget !== null && (
+                <ProposalPanel projectId={projectId} savedTarget={savedTarget} />
               )}
             </>
           )}
