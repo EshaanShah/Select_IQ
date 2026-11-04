@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(projects.router)
     app.include_router(comparisons.router)
+    app.include_router(comparisons.preferences_router)
     app.include_router(recommendations.router)
     app.include_router(feedback.router)
 
