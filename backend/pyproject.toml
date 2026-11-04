@@ -38,6 +38,7 @@ packages = ["src/selectiq"]
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["real_model: loads the configured pretrained model and may download weights"]
 
 [tool.ruff]
 line-length = 100

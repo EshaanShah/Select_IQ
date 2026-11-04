@@ -4,10 +4,15 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-python3 -m compileall -q backend/src scripts
+python_bin="python3"
+if [[ -x backend/.venv/bin/python ]]; then
+  python_bin="backend/.venv/bin/python"
+fi
 
-if python3 -c "import pytest" 2>/dev/null; then
-  PYTHONPATH=backend/src python3 -m pytest backend/tests
+"$python_bin" -m compileall -q backend/src scripts
+
+if "$python_bin" -c "import pytest" 2>/dev/null; then
+  PYTHONPATH=backend/src "$python_bin" -m pytest backend/tests -m "not real_model"
 else
   echo "pytest is not installed; Python source compilation passed."
 fi

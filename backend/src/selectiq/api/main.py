@@ -1,13 +1,22 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from selectiq.api.dependencies import get_settings
+from selectiq.api.dependencies import get_analysis_runner, get_settings
 from selectiq.api.routes import comparisons, feedback, projects, recommendations
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="SelectIQ Alpha API", version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        yield
+        if get_analysis_runner.cache_info().currsize:
+            get_analysis_runner().shutdown()
+
+    app = FastAPI(title="SelectIQ Alpha API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,

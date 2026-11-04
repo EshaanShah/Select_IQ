@@ -12,8 +12,14 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$repo_root"
-python3 -m alembic -c backend/alembic.ini upgrade head
-PYTHONPATH=backend/src python3 -m uvicorn selectiq.api.main:app --reload --port 8000 &
+python_bin="backend/.venv/bin/python"
+if [[ ! -x "$python_bin" ]]; then
+  echo "backend/.venv is missing. Follow the README setup steps first." >&2
+  exit 1
+fi
+
+"$python_bin" -m alembic -c backend/alembic.ini upgrade head
+PYTHONPATH=backend/src "$python_bin" -m uvicorn selectiq.api.main:app --reload --port 8000 &
 api_pid=$!
 
 npm --prefix frontend run dev

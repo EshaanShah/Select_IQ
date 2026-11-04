@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -27,7 +28,7 @@ from sqlalchemy.orm import (
 )
 
 from selectiq.domain.enums import ProcessingState
-from selectiq.domain.models import CreativeBrief, ImportFailure, Photograph, Project
+from selectiq.domain.models import CreativeBrief, ImportFailure, PhotoFeature, Photograph, Project
 
 
 class ProjectRepository(Protocol):
@@ -44,6 +45,18 @@ class ProjectRepository(Protocol):
     def accepted_count(self, project_id: str) -> int: ...
 
     def import_failures(self, project_id: str) -> list[ImportFailure]: ...
+
+    def list_photos(self, project_id: str) -> list[Photograph]: ...
+
+    def get_feature(self, photo_id: str) -> PhotoFeature | None: ...
+
+    def mark_photo_processing(self, photo_id: str) -> None: ...
+
+    def mark_photo_failed(self, photo_id: str, code: str, message: str) -> None: ...
+
+    def save_feature(self, feature: PhotoFeature) -> None: ...
+
+    def update_relevance(self, photo_id: str, prompt_hash: str, score: float) -> None: ...
 
 
 class Base(DeclarativeBase):
@@ -94,7 +107,30 @@ class PhotoRow(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     processing_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    analysis_error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     project: Mapped[ProjectRow] = relationship(back_populates="photos")
+
+
+class PhotoFeatureRow(Base):
+    __tablename__ = "photo_features"
+    __table_args__ = (
+        CheckConstraint("embedding_dimension > 0", name="ck_feature_dimension_positive"),
+    )
+
+    photo_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True
+    )
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    checkpoint: Mapped[str] = mapped_column(String(256), nullable=False)
+    model_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding_path: Mapped[str] = mapped_column(String(4096), nullable=False)
+    prompt_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    brief_relevance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class ImportFailureRow(Base):
@@ -229,6 +265,72 @@ class SqlProjectRepository:
                 for row in rows
             ]
 
+    def list_photos(self, project_id: str) -> list[Photograph]:
+        project_uuid = self._uuid(project_id)
+        if project_uuid is None:
+            return []
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(PhotoRow).where(PhotoRow.project_id == project_uuid).order_by(PhotoRow.id)
+            ).all()
+            return [self._to_photo(row) for row in rows]
+
+    def get_feature(self, photo_id: str) -> PhotoFeature | None:
+        photo_uuid = self._uuid(photo_id)
+        if photo_uuid is None:
+            return None
+        with self.session_factory() as session:
+            row = session.get(PhotoFeatureRow, photo_uuid)
+            return self._to_feature(row) if row is not None else None
+
+    def mark_photo_processing(self, photo_id: str) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoRow, UUID(photo_id))
+            if row is not None:
+                row.processing_state = ProcessingState.PROCESSING.value
+                row.analysis_error_code = None
+                row.analysis_error_message = None
+
+    def mark_photo_failed(self, photo_id: str, code: str, message: str) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoRow, UUID(photo_id))
+            if row is not None:
+                row.processing_state = ProcessingState.FAILED.value
+                row.analysis_error_code = code
+                row.analysis_error_message = message[:1024]
+
+    def save_feature(self, feature: PhotoFeature) -> None:
+        with self.session_factory.begin() as session:
+            photo_uuid = UUID(feature.photo_id)
+            row = session.get(PhotoFeatureRow, photo_uuid)
+            values = {
+                "model_name": feature.model_name,
+                "checkpoint": feature.checkpoint,
+                "model_fingerprint": feature.model_fingerprint,
+                "embedding_dimension": feature.embedding_dimension,
+                "embedding_path": str(feature.embedding_path),
+                "prompt_hash": feature.prompt_hash,
+                "brief_relevance": feature.brief_relevance,
+            }
+            if row is None:
+                session.add(PhotoFeatureRow(photo_id=photo_uuid, **values))
+            else:
+                for key, value in values.items():
+                    setattr(row, key, value)
+            photo = session.get(PhotoRow, photo_uuid)
+            if photo is not None:
+                photo.processing_state = ProcessingState.COMPLETED.value
+                photo.analysis_error_code = None
+                photo.analysis_error_message = None
+
+    def update_relevance(self, photo_id: str, prompt_hash: str, score: float) -> None:
+        with self.session_factory.begin() as session:
+            row = session.get(PhotoFeatureRow, UUID(photo_id))
+            if row is None:
+                raise ValueError(f"Photo {photo_id} has no embedding.")
+            row.prompt_hash = prompt_hash
+            row.brief_relevance = score
+
     @staticmethod
     def _to_photo(row: PhotoRow) -> Photograph:
         return Photograph(
@@ -241,6 +343,21 @@ class SqlProjectRepository:
             height=row.height,
             byte_size=row.byte_size,
             state=ProcessingState(row.processing_state),
+            analysis_error_code=row.analysis_error_code,
+            analysis_error_message=row.analysis_error_message,
+        )
+
+    @staticmethod
+    def _to_feature(row: PhotoFeatureRow) -> PhotoFeature:
+        return PhotoFeature(
+            photo_id=str(row.photo_id),
+            model_name=row.model_name,
+            checkpoint=row.checkpoint,
+            model_fingerprint=row.model_fingerprint,
+            embedding_dimension=row.embedding_dimension,
+            embedding_path=Path(row.embedding_path),
+            prompt_hash=row.prompt_hash,
+            brief_relevance=row.brief_relevance,
         )
 
     @staticmethod

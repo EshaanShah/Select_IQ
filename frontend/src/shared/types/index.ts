@@ -39,6 +39,34 @@ export type ProjectStatus = {
   failures: ImportFailure[];
   prompt: string | null;
   target: number | null;
+  analysisStatus: AnalysisStatus;
+  analysisTotal: number;
+  analysisCompleted: number;
+  analysisFailed: number;
+  analysisFailures: AnalysisFailure[];
+  analysisModel?: string | null;
+  analysisCheckpoint?: string | null;
+  embeddingDimension?: number | null;
+};
+
+export type AnalysisStatus =
+  | "idle"
+  | "queued"
+  | "running"
+  | "completed"
+  | "partial_failure"
+  | "failed";
+
+export type AnalysisFailure = {
+  photoId: PhotoId;
+  originalFilename: string;
+  code: string;
+  message: string;
+};
+
+export type AnalysisStarted = {
+  projectId: ProjectId;
+  analysisStatus: AnalysisStatus;
 };
 
 export type PromptTargetResult = {

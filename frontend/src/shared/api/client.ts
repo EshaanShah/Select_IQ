@@ -1,4 +1,5 @@
 import type {
+  AnalysisStarted,
   ImportResult,
   ProjectCreated,
   ProjectStatus,
@@ -51,4 +52,8 @@ export function savePromptAndTarget(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt, target }),
   });
+}
+
+export function startAnalysis(projectId: string): Promise<AnalysisStarted> {
+  return apiRequest<AnalysisStarted>(`/projects/${projectId}/analyze`, { method: "POST" });
 }
