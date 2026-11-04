@@ -54,6 +54,11 @@ def test_next_pair_contract_returns_two_renderable_project_photos(
     assert body["photoA"]["photoId"] in photo_ids
     assert body["photoB"]["photoId"] in photo_ids
     assert body["photoA"]["photoId"] != body["photoB"]["photoId"]
+    filenames_by_id = {
+        photo_id: f"photo-{index}.jpg" for index, photo_id in enumerate(photo_ids)
+    }
+    assert body["photoA"]["originalFilename"] == filenames_by_id[body["photoA"]["photoId"]]
+    assert body["photoB"]["originalFilename"] == filenames_by_id[body["photoB"]["photoId"]]
     assert body["photoA"]["imageUrl"].startswith(f"/projects/{project_id}/photos/")
     assert body["photoB"]["imageUrl"].startswith(f"/projects/{project_id}/photos/")
 
