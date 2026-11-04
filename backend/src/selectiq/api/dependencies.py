@@ -6,7 +6,13 @@ from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
 from selectiq.infrastructure.image_store import LocalImageStore
 from selectiq.infrastructure.model_adapters import DeterministicVisualEncoder, OpenClipVisualEncoder
 from selectiq.infrastructure.project_repository import SqlProjectRepository, create_session_factory
+from selectiq.infrastructure.reasoners import (
+    BriefReasoner,
+    GroqBriefReasoner,
+    ScriptedBriefReasoner,
+)
 from selectiq.infrastructure.settings import Settings
+from selectiq.intelligence.brief_interpreter import BriefInterpreter
 from selectiq.intelligence.feature_extractor import FeatureExtractor
 from selectiq.jobs.analyze_gallery import GalleryAnalysisRunner
 
@@ -49,13 +55,26 @@ def get_analysis_runner() -> GalleryAnalysisRunner:
         )
     else:
         raise ValueError(f"Unknown model adapter: {settings.model_adapter}")
-    extractor = FeatureExtractor(
+    cache = NumpyEmbeddingCache(settings.data_root / "cache")
+    extractor = FeatureExtractor(get_repository(), cache, encoder, settings.embedding_batch_size)
+    interpreter = BriefInterpreter(
         get_repository(),
-        NumpyEmbeddingCache(settings.data_root / "cache"),
+        cache,
         encoder,
-        settings.embedding_batch_size,
+        build_reasoner(settings),
+        settings.reasoner_max_requests_per_project,
     )
-    return GalleryAnalysisRunner(get_repository(), extractor)
+    return GalleryAnalysisRunner(get_repository(), extractor, interpreter)
+
+
+def build_reasoner(settings: Settings) -> BriefReasoner:
+    if settings.reasoner == "groq":
+        return GroqBriefReasoner(
+            settings.groq_api_key, settings.groq_model, settings.reasoner_timeout_seconds
+        )
+    if settings.reasoner == "fake":
+        return ScriptedBriefReasoner()
+    raise ValueError(f"Unknown reasoner: {settings.reasoner}")
 
 
 @lru_cache

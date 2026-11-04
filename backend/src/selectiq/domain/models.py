@@ -33,6 +33,47 @@ class PhotoFeature:
 
 
 @dataclass(frozen=True, slots=True)
+class PhotoNote:
+    photo_id: str
+    effect: str  # "boost" or "penalize"
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class GuidedScore:
+    photo_id: str
+    guided_score: float
+    descriptor_score: float
+    note_adjustment: float
+    brief_relevance: float | None
+    explanation: str
+
+
+@dataclass(frozen=True, slots=True)
+class BriefInterpretation:
+    """One auditable generative-model interpretation attempt for a project's brief."""
+
+    id: str
+    project_id: str
+    prompt_hash: str
+    status: str  # "completed" or "failed"
+    provider: str
+    model_name: str
+    provider_called: bool
+    summary: str | None = None
+    positive_descriptors: tuple[str, ...] = ()
+    negative_descriptors: tuple[str, ...] = ()
+    photo_notes: tuple[PhotoNote, ...] = ()
+    raw_response: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    duration_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    created_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ImportFailure:
     filename: str
     code: str

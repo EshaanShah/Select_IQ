@@ -75,3 +75,43 @@ export type PromptTargetResult = {
   target: number;
   acceptedCount: number;
 };
+
+export type InterpretationStatus = "not_started" | "running" | "completed" | "failed";
+
+export type PhotoNote = {
+  photoId: PhotoId;
+  originalFilename: string;
+  effect: "boost" | "penalize";
+  reason: string;
+};
+
+export type RankingEntry = {
+  photoId: PhotoId;
+  originalFilename: string;
+  rank: number;
+  guidedScore: number | null;
+  briefRelevance: number | null;
+  explanation: string | null;
+};
+
+export type Interpretation = {
+  projectId: ProjectId;
+  status: InterpretationStatus;
+  provider: string | null;
+  model: string | null;
+  summary: string | null;
+  positiveDescriptors: string[];
+  negativeDescriptors: string[];
+  photoNotes: PhotoNote[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt?: string | null;
+  durationMs?: number | null;
+  rankingBasis: "guided" | "brief_relevance";
+  ranking: RankingEntry[];
+};
+
+export type InterpretationStarted = {
+  projectId: ProjectId;
+  status: string;
+};

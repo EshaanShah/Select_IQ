@@ -68,7 +68,7 @@ def analyzed(project_service, tmp_path):
         project.id,
         [PhotoUpload(f"{name}.jpg", BytesIO(jpeg(name))) for name in ("red", "green", "blue")],
     ).accepted
-    project_service.save_prompt_and_target(project.id, "Bright warm scenes.", 2)
+    project_service.set_prompt_and_target(project.id, "Bright warm scenes.", 2)
     encoder = ColorAxisEncoder()
     cache = NumpyEmbeddingCache(tmp_path / "cache")
     extractor = FeatureExtractor(project_service.repository, cache, encoder)
@@ -185,6 +185,6 @@ def test_changing_the_brief_makes_the_interpretation_stale(project_service, anal
     interpreter.run(project_id)
     assert interpreter.is_current(project_id)
 
-    project_service.save_prompt_and_target(project_id, "Something else entirely.", 2)
+    project_service.set_prompt_and_target(project_id, "Something else entirely.", 2)
 
     assert not interpreter.is_current(project_id)

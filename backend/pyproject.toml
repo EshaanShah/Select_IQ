@@ -10,6 +10,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
   "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
   "numpy>=2,<3",
   "opencv-python-headless>=4.10,<5",
   "open-clip-torch>=2.29,<3",
@@ -25,7 +26,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.28,<1",
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
   "ruff>=0.9,<1"

@@ -234,6 +234,108 @@ describe("prompt and target", () => {
   });
 });
 
+describe("brief interpretation", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+  });
+
+  const completedStatus = {
+    projectId: "project-1",
+    acceptedCount: 3,
+    remainingCapacity: 27,
+    failures: [],
+    prompt: "Best lit, nicest smiles.",
+    target: 2,
+    analysisStatus: "completed",
+    analysisTotal: 3,
+    analysisCompleted: 3,
+    analysisFailed: 0,
+    analysisFailures: [],
+    analysisModel: "ViT-B-32",
+  };
+
+  function route(interpretation: unknown, posted?: unknown) {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/status")) return response(completedStatus);
+      if (url.endsWith("/interpretation") && init?.method === "POST") {
+        return response(posted ?? { projectId: "project-1", status: "queued" }, 202);
+      }
+      if (url.endsWith("/interpretation")) return response(interpretation);
+      throw new Error(`Unexpected request ${url}`);
+    });
+  }
+
+  it("shows the model's auditable interpretation and guided ranking", async () => {
+    route({
+      projectId: "project-1",
+      status: "completed",
+      provider: "groq",
+      model: "qwen/qwen3.8-27b",
+      summary: "Favor bright, genuine smiles.",
+      positiveDescriptors: ["a person smiling"],
+      negativeDescriptors: ["a dark underexposed photo"],
+      photoNotes: [
+        { photoId: "photo-2", originalFilename: "laugh.jpg", effect: "boost", reason: "Wide natural smile." },
+      ],
+      errorCode: null,
+      errorMessage: null,
+      rankingBasis: "guided",
+      ranking: [
+        { photoId: "photo-2", originalFilename: "laugh.jpg", rank: 1, guidedScore: 0.12, briefRelevance: 0.18, explanation: "Closest to \u201ca person smiling\u201d (0.262)." },
+        { photoId: "photo-1", originalFilename: "dark.jpg", rank: 2, guidedScore: 0.01, briefRelevance: 0.21, explanation: "Closest to \u201ca person smiling\u201d (0.150)." },
+        { photoId: "photo-3", originalFilename: "blur.jpg", rank: 3, guidedScore: -0.02, briefRelevance: 0.1, explanation: "Closest to \u201ca person smiling\u201d (0.100)." },
+      ],
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Favor bright, genuine smiles.")).toBeInTheDocument();
+    expect(screen.getByText(/qwen\/qwen3.8-27b via groq/i)).toBeInTheDocument();
+    expect(screen.getByText("a person smiling")).toBeInTheDocument();
+    expect(screen.getByText("a dark underexposed photo")).toBeInTheDocument();
+    expect(screen.getByText("Wide natural smile.")).toBeInTheDocument();
+    const leaders = screen.getByRole("list", { name: "Top 2 by AI guidance" });
+    expect(leaders).toHaveTextContent(/laugh\.jpg.*dark\.jpg/);
+    expect(leaders).not.toHaveTextContent("blur.jpg");
+    expect(screen.queryByText(/interpretation unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("labels the degraded fallback and retries the model call", async () => {
+    route({
+      projectId: "project-1",
+      status: "failed",
+      provider: "groq",
+      model: "qwen/qwen3.8-27b",
+      summary: null,
+      positiveDescriptors: [],
+      negativeDescriptors: [],
+      photoNotes: [],
+      errorCode: "rate_limited",
+      errorMessage: "Groq returned HTTP 429.",
+      rankingBasis: "brief_relevance",
+      ranking: [
+        { photoId: "photo-1", originalFilename: "dark.jpg", rank: 1, guidedScore: null, briefRelevance: 0.21, explanation: null },
+      ],
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/AI interpretation unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/Groq returned HTTP 429\./)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Top 1 by basic relevance" })).toHaveTextContent("dark.jpg");
+    fireEvent.click(screen.getByRole("button", { name: "Retry AI interpretation" }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => url.endsWith("/projects/project-1/interpretation") && init?.method === "POST",
+        ),
+      ).toBe(true),
+    );
+  });
+});
+
 function response(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,

@@ -7,6 +7,7 @@ import {
   startAnalysis,
   uploadPhotos,
 } from "../shared/api/client";
+import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
 import type {
   AnalysisFailure,
   AnalysisStatus,
@@ -382,6 +383,10 @@ export function App() {
               </ul>
             )}
           </section>
+
+          {projectId && analysisStatus === "completed" && (
+            <InterpretationPanel projectId={projectId} target={Number(target) || null} />
+          )}
         </>
       )}
     </main>

@@ -61,3 +61,26 @@ h2 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 1.55rem; font-weig
   .pickers { flex-direction: column; }
   .picker { justify-content: center; }
 }
+.interpretation-card { display: grid; gap: 18px; margin-top: 20px; padding: 24px 28px; border: 1px solid #d8d4c8; border-radius: 18px; background: #fffdf8; box-shadow: 0 16px 45px rgb(40 48 42 / 8%); }
+.interpretation-card h2 { margin: 0; }
+.interpretation-card h3 { margin: 0 0 8px; color: #3f4842; font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.interpretation-card p { margin: 6px 0 0; color: #59635d; line-height: 1.55; }
+.interpretation-summary { color: #1f2722 !important; font-size: 1.04rem; }
+.interpretation-meta { font-size: 0.86rem; }
+.degraded { padding: 12px 14px; border-radius: 10px; background: #fff6e0; color: #7a5410 !important; }
+.descriptor-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.descriptors { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.descriptors li { padding: 6px 12px; border-radius: 999px; font-size: 0.9rem; }
+.descriptors.favor li { background: #e8f2eb; color: #23613e; }
+.descriptors.avoid li { background: #fff0ed; color: #9a3325; }
+.photo-notes, .ranking { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.photo-notes li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.note-effect { padding: 2px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; }
+.note-effect.boost { background: #e8f2eb; color: #23613e; }
+.note-effect.penalize { background: #fff0ed; color: #9a3325; }
+.ranking { counter-reset: rank; }
+.ranking li { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: baseline; padding: 10px 12px; border-radius: 10px; background: #f6f3ea; counter-increment: rank; }
+.ranking li::before { content: counter(rank); color: #357455; font-weight: 800; }
+.ranking .scores { color: #707871; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.ranking .explanation { grid-column: 2 / -1; color: #59635d; font-size: 0.88rem; }
+@media (max-width: 560px) { .ranking li { grid-template-columns: auto 1fr; } .ranking .scores { grid-column: 2; } }
