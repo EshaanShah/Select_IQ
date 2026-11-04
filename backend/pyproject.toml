@@ -38,7 +38,10 @@ packages = ["src/selectiq"]
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
-markers = ["real_model: loads the configured pretrained model and may download weights"]
+markers = [
+  "real_model: loads the configured pretrained model and may download weights",
+  "real_llm: calls the configured hosted generative model and needs an API key",
+]
 
 [tool.ruff]
 line-length = 100
