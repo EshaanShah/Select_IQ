@@ -51,7 +51,8 @@ green with 131 backend tests and 16 frontend tests.
 - Added neutral zero-choice scores, fixed-seed reproducibility, mean-centered project-relative
   scores, model versioning, and the honest method label `regularized_pairwise_logistic`.
 - Added `PreferenceService` to load validated A-03 vectors, exclude missing or unanalyzed photos,
-  read only the current project's A-05 choices, and count only usable comparisons.
+  exclude failed photos even when stale feature records remain, read only the current project's
+  A-05 choices, and count only usable comparisons.
 - Added `GET /projects/{project_id}/preferences` with deterministic score ordering, `404` for an
   unknown project, and `409` when no usable analysis exists.
 
@@ -59,8 +60,8 @@ No A-06 test was changed or weakened during the green phase.
 
 ## Verification
 
-- Focused A-06: 30 passed.
-- Backend non-external suite: 161 passed, 2 permissioned-fixture skips, 2 external tests deselected.
+- Focused A-06: 31 passed.
+- Backend non-external suite: 162 passed, 2 permissioned-fixture skips, 2 external tests deselected.
 - Frontend: 16 passed.
 - TypeScript/Vite production build: passed.
 - Ruff, Python compilation, and whitespace validation: passed.

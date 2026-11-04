@@ -162,6 +162,24 @@ def test_missing_cached_embedding_is_excluded_without_failing(
     assert result.comparisons_used == 0
 
 
+def test_failed_photo_with_stale_feature_is_excluded(
+    project_service: ProjectService, cache: NumpyEmbeddingCache
+) -> None:
+    project_id, photo_ids = analyzed_project(project_service, cache)
+    failed_id = photo_ids[0]
+    assert project_service.repository.get_feature(failed_id) is not None
+    project_service.repository.mark_photo_failed(
+        failed_id, "inference_failed", "Injected reanalysis failure."
+    )
+    _, preferences = services(project_service, cache)
+
+    result = preferences.scores(project_id)
+
+    assert failed_id not in result.scores
+    assert set(result.scores) == set(photo_ids[1:])
+    assert result.comparisons_used == 0
+
+
 def test_choice_with_unanalyzed_photo_is_not_used_for_training(
     project_service: ProjectService, cache: NumpyEmbeddingCache
 ) -> None:

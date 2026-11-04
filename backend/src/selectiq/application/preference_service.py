@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from selectiq.domain.enums import ProcessingState
 from selectiq.domain.errors import ProjectNotFoundError, ValidationError
 from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
 from selectiq.infrastructure.project_repository import ProjectRepository
@@ -26,6 +27,8 @@ class PreferenceService:
 
         features: dict[str, np.ndarray] = {}
         for photo in project.photos:
+            if photo.state is not ProcessingState.COMPLETED:
+                continue
             feature = self.repository.get_feature(photo.id)
             if feature is None:
                 continue
