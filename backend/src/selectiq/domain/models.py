@@ -73,6 +73,19 @@ class BriefInterpretation:
     created_at: datetime | None = None
 
 
+SIGNAL_NAMES = ("prompt_relevance", "ai_guidance", "preference")
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoSignals:
+    """Per-photo ranking evidence: A-03 brief relevance, A-04 guidance, A-06 preference."""
+
+    photo_id: str
+    prompt_relevance: float | None = None
+    ai_guidance: float | None = None
+    preference: float | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ImportFailure:
     filename: str
