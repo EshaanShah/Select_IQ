@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 from typing import Protocol
@@ -301,6 +301,7 @@ class ProposalItemRow(Base):
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
     contributions: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ProposalRepository(Protocol):
@@ -314,6 +315,8 @@ class ProposalRepository(Protocol):
     ) -> Proposal: ...
 
     def latest(self, project_id: str) -> Proposal | None: ...
+
+    def set_removed(self, proposal_id: str, photo_id: str, removed: bool) -> Proposal | None: ...
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
@@ -774,6 +777,21 @@ class SqlProposalRepository:
             )
         return None if proposal_id is None else self._load(proposal_id)
 
+    def set_removed(self, proposal_id: str, photo_id: str, removed: bool) -> Proposal | None:
+        proposal_uuid = SqlProjectRepository._uuid(proposal_id)
+        photo_uuid = SqlProjectRepository._uuid(photo_id)
+        if proposal_uuid is None or photo_uuid is None:
+            return None
+        with self._write_lock, self.session_factory.begin() as session:
+            row = session.get(ProposalItemRow, (proposal_uuid, photo_uuid))
+            if row is None:
+                return None
+            if removed and row.removed_at is None:
+                row.removed_at = datetime.now(UTC)
+            elif not removed:
+                row.removed_at = None
+        return self._load(proposal_uuid)
+
     def _load(self, proposal_id: UUID) -> Proposal | None:
         with self.session_factory() as session:
             row = session.get(ProposalRow, proposal_id)
@@ -799,6 +817,7 @@ class SqlProposalRepository:
                         rank=item.rank,
                         score=item.score,
                         contributions=dict(item.contributions),
+                        removed=item.removed_at is not None,
                     )
                     for item, filename in item_rows
                 ),

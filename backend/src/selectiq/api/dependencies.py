@@ -41,14 +41,19 @@ def get_repository() -> SqlProjectRepository:
 
 
 @lru_cache
-def get_project_service() -> ProjectService:
+def get_image_store() -> LocalImageStore:
     settings = get_settings()
-    image_store = LocalImageStore(
+    return LocalImageStore(
         data_root=settings.data_root,
         max_file_size_bytes=settings.max_file_size_bytes,
         max_decoded_pixels=settings.max_decoded_pixels,
     )
-    return ProjectService(get_repository(), image_store, settings.max_gallery_size)
+
+
+@lru_cache
+def get_project_service() -> ProjectService:
+    settings = get_settings()
+    return ProjectService(get_repository(), get_image_store(), settings.max_gallery_size)
 
 
 @lru_cache
@@ -124,5 +129,8 @@ def get_recommendation_service() -> RecommendationService:
         genuine_reasoner=settings.reasoner == "groq",
     )
     return RecommendationService(
-        get_repository(), SqlProposalRepository(get_repository().session_factory), provider
+        get_repository(),
+        SqlProposalRepository(get_repository().session_factory),
+        provider,
+        get_image_store(),
     )
