@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { jsonResponse as response, proposalFixture, provenanceFixture } from "../../test/fixtures";
@@ -126,5 +126,16 @@ describe("ProposalPanel", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Analyze the gallery before generating a proposal.");
     expect(screen.queryByRole("list", { name: "Proposed photographs" })).not.toBeInTheDocument();
+  });
+});
+
+describe("ProposalPanel progress", () => {
+  beforeEach(() => fetchMock.mockReset());
+
+  it("reports the current proposal to its parent", async () => {
+    const onProposal = vi.fn();
+    fetchMock.mockResolvedValueOnce(response(proposalFixture()));
+    render(<ProposalPanel projectId="project-1" savedTarget={5} onProposal={onProposal} />);
+    await waitFor(() => expect(onProposal).toHaveBeenCalledWith(expect.objectContaining({ selectedCount: 5 })));
   });
 });

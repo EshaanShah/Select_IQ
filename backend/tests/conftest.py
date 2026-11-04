@@ -69,7 +69,10 @@ class AiStack:
     proposals: SqlProposalRepository
 
     def signal_provider(
-        self, genuine_encoder: bool = False, genuine_reasoner: bool = False
+        self,
+        genuine_encoder: bool = False,
+        genuine_reasoner: bool = False,
+        analysis_running=lambda project_id: False,
     ) -> ProjectSignalProvider:
         return ProjectSignalProvider(
             self.projects.repository,
@@ -78,6 +81,7 @@ class AiStack:
             self.preferences,
             genuine_encoder=genuine_encoder,
             genuine_reasoner=genuine_reasoner,
+            analysis_running=analysis_running,
         )
 
     def recommendations(self, **provider_flags: bool) -> RecommendationService:

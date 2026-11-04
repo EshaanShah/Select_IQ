@@ -36,13 +36,24 @@ class ComparisonService:
         choices = self.repository.comparison_choices(project_id)
         if len(choices) >= self.comparison_budget:
             return None
+        # The selector orders by identifier; stable keys keep pairs identical for the same
+        # files across fresh projects, since photo UUIDs are random per upload.
+        ordered = sorted(
+            project.photos, key=lambda photo: (photo.original_filename, photo.content_hash, photo.id)
+        )
+        key_of = {photo.id: f"{index:04d}" for index, photo in enumerate(ordered)}
+        photo_of = {key: photo_id for photo_id, key in key_of.items()}
         previous = {
-            frozenset((choice.winner_id, choice.loser_id)) for choice in choices
+            frozenset((key_of[choice.winner_id], key_of[choice.loser_id]))
+            for choice in choices
+            if choice.winner_id in key_of and choice.loser_id in key_of
         }
-        pair = self.pair_selector.select([photo.id for photo in project.photos], previous)
+        pair = self.pair_selector.select(list(photo_of), previous)
         if pair is None:
             return None
-        return ComparisonPair(pair[0], pair[1], len(choices) + 1, self.comparison_budget)
+        return ComparisonPair(
+            photo_of[pair[0]], photo_of[pair[1]], len(choices) + 1, self.comparison_budget
+        )
 
     def record_choice(
         self, project_id: str, photo_a_id: str, photo_b_id: str, winner_id: str

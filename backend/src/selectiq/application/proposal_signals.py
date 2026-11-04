@@ -5,6 +5,7 @@ guidance is used only when the latest interpretation completed for this brief; o
 the signal is absent and the provenance says so rather than substituting anything.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from selectiq.application.preference_service import PreferenceService
@@ -31,6 +32,7 @@ class ProjectSignalProvider:
         preferences: PreferenceService,
         genuine_encoder: bool,
         genuine_reasoner: bool,
+        analysis_running: Callable[[str], bool] = lambda project_id: False,
     ) -> None:
         self.repository = repository
         self.extractor = extractor
@@ -38,10 +40,15 @@ class ProjectSignalProvider:
         self.preferences = preferences
         self.genuine_encoder = genuine_encoder
         self.genuine_reasoner = genuine_reasoner
+        self.analysis_running = analysis_running
 
     def collect(self, project: Project) -> SignalBundle:
         if project.brief is None:
             raise ValidationError("Save a creative brief and target before generating a proposal.")
+        if self.analysis_running(project.id):
+            raise ValidationError(
+                "AI analysis or interpretation is still running. Try again when it finishes."
+            )
         brief = project.brief.original_text
         analyzed = [
             photo

@@ -22,7 +22,15 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init);
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, init);
+  } catch {
+    throw new ApiError(
+      `SelectIQ cannot reach its local API at ${apiBaseUrl}. Start it with scripts/dev.sh and try again.`,
+      0,
+    );
+  }
 
   if (!response.ok) {
     let detail = `SelectIQ API request failed with status ${response.status}`;
@@ -113,4 +121,17 @@ export function exportUrl(projectId: string): string {
 
 export function thumbnailUrl(projectId: string, photoId: string): string {
   return `${apiBaseUrl}/projects/${projectId}/photos/${photoId}/thumbnail`;
+}
+
+type NextComparisonSummary = { sequence: number; budget: number; completed: boolean };
+
+export async function getComparisonProgress(
+  projectId: string,
+): Promise<{ completed: number; budget: number; done: boolean }> {
+  const next = await apiRequest<NextComparisonSummary>(`/projects/${projectId}/comparisons/next`);
+  return {
+    completed: next.completed ? next.budget : next.sequence - 1,
+    budget: next.budget,
+    done: next.completed,
+  };
 }

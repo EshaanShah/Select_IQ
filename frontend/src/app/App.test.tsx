@@ -443,3 +443,76 @@ describe("proposal step", () => {
     expect(screen.queryByRole("heading", { name: "Generate a proposal" })).not.toBeInTheDocument();
   });
 });
+
+describe("guided demo", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+  });
+
+  it("shows the six-step demo guide", () => {
+    render(<App />);
+    const steps = screen.getByRole("list", { name: "Demo steps" });
+    expect(steps).toHaveTextContent("Upload 10–30 JPEGs");
+    expect(steps).toHaveTextContent("Make 5 A/B choices");
+  });
+
+  it("keeps the saved project when the API is temporarily unreachable", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("cannot reach its local API");
+    expect(window.localStorage.getItem("selectiq.projectId")).toBe("project-1");
+  });
+
+  it("forgets a saved project that no longer exists", async () => {
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+    fetchMock.mockResolvedValueOnce(response({ detail: "Project project-1 was not found." }, 404));
+
+    render(<App />);
+
+    await waitFor(() => expect(window.localStorage.getItem("selectiq.projectId")).toBeNull());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("guided demo after reload", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    window.localStorage.clear();
+    window.localStorage.setItem("selectiq.projectId", "project-1");
+  });
+
+  it("restores saved A/B progress into the step guide", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/status")) {
+        return response({
+          projectId: "project-1",
+          acceptedCount: 18,
+          remainingCapacity: 12,
+          failures: [],
+          prompt: "Peak action.",
+          target: 5,
+          analysisStatus: "completed",
+          analysisTotal: 18,
+          analysisCompleted: 18,
+          analysisFailed: 0,
+          analysisFailures: [],
+        });
+      }
+      if (url.endsWith("/comparisons/next")) {
+        return response({ projectId: "project-1", sequence: 6, budget: 5, completed: true, photoA: null, photoB: null });
+      }
+      if (url.endsWith("/interpretation")) return response({ detail: "unused" }, 404);
+      if (url.endsWith("/recommendations")) return response({ detail: "none" }, 404);
+      throw new Error(`Unexpected request ${url}`);
+    });
+
+    render(<App />);
+
+    const steps = await screen.findByRole("list", { name: "Demo steps" });
+    await waitFor(() => expect(steps).toHaveTextContent("Done: 5 of 5 choices"));
+  });
+});

@@ -17,8 +17,24 @@ type NextComparison = {
   photoB: ComparisonPhoto | null;
 };
 
-export function ComparisonPage({ projectId }: { projectId: string }) {
+export type ComparisonProgress = { completed: number; budget: number; done: boolean };
+
+type ComparisonPageProps = {
+  projectId: string;
+  onProgress?: (progress: ComparisonProgress) => void;
+};
+
+export function ComparisonPage({ projectId, onProgress }: ComparisonPageProps) {
   const [comparison, setComparison] = useState<NextComparison | null>(null);
+
+  useEffect(() => {
+    if (!comparison || !onProgress) return;
+    onProgress({
+      completed: comparison.completed ? comparison.budget : comparison.sequence - 1,
+      budget: comparison.budget,
+      done: comparison.completed,
+    });
+  }, [comparison, onProgress]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

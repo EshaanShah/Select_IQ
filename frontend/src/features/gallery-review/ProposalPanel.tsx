@@ -13,10 +13,15 @@ import { ReviewGrid } from "./ReviewGrid";
 type ProposalPanelProps = {
   projectId: string;
   savedTarget: number | null;
+  onProposal?: (proposal: Proposal) => void;
 };
 
-export function ProposalPanel({ projectId, savedTarget }: ProposalPanelProps) {
+export function ProposalPanel({ projectId, savedTarget, onProposal }: ProposalPanelProps) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
+
+  useEffect(() => {
+    if (proposal && onProposal) onProposal(proposal);
+  }, [proposal, onProposal]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [pendingPhotoId, setPendingPhotoId] = useState<string | null>(null);
