@@ -73,6 +73,7 @@ export function ProposalPanel({ projectId, savedTarget, onProposal }: ProposalPa
     <section className="upload-card proposal" aria-labelledby="proposal-title">
       <div className="card-heading">
         <div>
+          <p className="section-kicker">05 · Review and export</p>
           <h2 id="proposal-title">Generate a proposal</h2>
           <p>SelectIQ ranks every accepted photograph and proposes exactly your target count.</p>
         </div>

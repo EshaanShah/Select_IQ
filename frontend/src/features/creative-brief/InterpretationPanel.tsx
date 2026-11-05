@@ -56,6 +56,7 @@ export function InterpretationPanel({ projectId, target }: Props) {
   if (!interpretation) {
     return error ? (
       <section className="interpretation-card">
+        <p className="section-kicker">AI reading</p>
         <h2>AI brief interpretation</h2>
         <p className="error" role="alert">{error}</p>
       </section>
@@ -74,6 +75,7 @@ export function InterpretationPanel({ projectId, target }: Props) {
   return (
     <section className="interpretation-card" aria-live="polite">
       <div>
+        <p className="section-kicker">AI reading</p>
         <h2>AI brief interpretation</h2>
         {status === "running" && <p>Interpreting your brief against the gallery…</p>}
         {status === "not_started" && (

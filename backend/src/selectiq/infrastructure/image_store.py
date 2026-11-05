@@ -39,6 +39,9 @@ class ImageStore(Protocol):
 class LocalImageStore:
     chunk_size = 1024 * 1024
     thumbnail_size = 512
+    # Pillow reports camera JPEGs with an MPF multi-picture container as MPO.
+    # The primary frame is still JPEG-encoded and is safe for the existing image pipeline.
+    jpeg_formats = frozenset({"JPEG", "MPO"})
 
     def __init__(self, data_root: Path, max_file_size_bytes: int, max_decoded_pixels: int):
         self.data_root = data_root
@@ -78,7 +81,7 @@ class LocalImageStore:
                 with warnings.catch_warnings():
                     warnings.simplefilter("error", Image.DecompressionBombWarning)
                     with Image.open(temporary_path) as image:
-                        if image.format != "JPEG":
+                        if image.format not in self.jpeg_formats:
                             raise ImportValidationError(
                                 "invalid_jpeg", "The file is not encoded as a JPEG photograph."
                             )

@@ -221,15 +221,59 @@ export function App() {
   const remaining = Math.max(galleryCapacity - acceptedCount, 0);
   const savedTarget = briefSaved && /^\d+$/.test(target) ? Number(target) : null;
 
+  function startNewCull() {
+    window.localStorage.removeItem(projectStorageKey);
+    projectToRestore.current = null;
+    setSelectedFiles([]);
+    setProjectId(null);
+    setAcceptedCount(0);
+    setFailures([]);
+    setBatchSummary(null);
+    setBusy(false);
+    setError(null);
+    setPrompt("");
+    setTarget("");
+    setBriefBusy(false);
+    setBriefError(null);
+    setBriefSaved(false);
+    setAnalysisStatus("idle");
+    setAnalysisCompleted(0);
+    setAnalysisFailures([]);
+    setAnalysisModel(null);
+    setComparisonsStarted(false);
+    setComparisonProgress(null);
+    setProposal(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <main className="shell">
       <header className="hero">
-        <p className="eyebrow">SelectIQ Alpha</p>
-        <h1>Import your gallery</h1>
-        <p className="lede">
-          Add JPEG photographs for curation. SelectIQ stores private working copies and never
-          changes your originals.
-        </p>
+        <div className="topbar">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">S</span>
+            <span>SelectIQ <small>Alpha</small></span>
+          </div>
+          <div className="topbar-actions">
+            <span className="privacy-status"><i aria-hidden="true" />Private local workspace</span>
+            <button className="new-cull" type="button" onClick={startNewCull}>
+              Start new cull
+            </button>
+          </div>
+        </div>
+        <div className="hero-copy">
+          <p className="eyebrow">AI-assisted photo curation</p>
+          <h1>Turn a full shoot into a focused story.</h1>
+          <p className="lede">
+            Import your gallery, describe the moments that matter, and shape a final selection
+            with transparent AI guidance and your own choices.
+          </p>
+          <div className="hero-notes" aria-label="Workspace details">
+            <span>JPEG workflow</span>
+            <span>10–30 photos recommended</span>
+            <span>Originals stay untouched</span>
+          </div>
+        </div>
       </header>
 
       <GuidedSteps
@@ -243,8 +287,9 @@ export function App() {
       <section className="upload-card" aria-labelledby="upload-title">
         <div className="card-heading">
           <div>
+            <p className="section-kicker">01 · Import</p>
             <h2 id="upload-title">Choose photographs</h2>
-            <p>JPG or JPEG · 25 MB and 60 megapixels per photograph</p>
+            <p>Start with the full story. You can add individual files or an entire folder.</p>
           </div>
           <div
             className="count"
@@ -258,8 +303,9 @@ export function App() {
 
         <div className="pickers">
           <label className="picker">
-            Choose files
+            <span aria-hidden="true">＋</span> Choose files
             <input
+              aria-label="Choose files"
               type="file"
               accept=".jpg,.jpeg,image/jpeg"
               multiple
@@ -268,8 +314,9 @@ export function App() {
             />
           </label>
           <label className="picker secondary">
-            Choose folder
+            <span aria-hidden="true">▣</span> Choose folder
             <input
+              aria-label="Choose folder"
               ref={folderInput}
               type="file"
               accept=".jpg,.jpeg,image/jpeg"
@@ -282,7 +329,10 @@ export function App() {
 
         <div className="selection" aria-live="polite">
           <span>{selectedFiles.length} files selected</span>
-          <span>{remaining} spaces remaining</span>
+          <span className="capacity-detail">
+            <span>{remaining} spaces remaining</span>
+            <small>JPG/JPEG · 25 MB max</small>
+          </span>
         </div>
 
         <button
@@ -300,15 +350,26 @@ export function App() {
 
       {failures.length > 0 && (
         <section className="failures" aria-labelledby="failures-title">
-          <h2 id="failures-title">Files that need attention</h2>
-          <ul>
-            {failures.map((failure, index) => (
-              <li key={`${failure.filename}-${failure.code}-${index}`}>
-                <strong>{failure.filename}</strong>
-                <span>{failure.message}</span>
-              </li>
-            ))}
-          </ul>
+          <details>
+            <summary>
+              <span className="failure-summary-copy">
+                <span className="failure-icon" aria-hidden="true">!</span>
+                <span>
+                  <h2 id="failures-title">Files that need attention</h2>
+                  <small>{failures.length} {failures.length === 1 ? "file was" : "files were"} not imported</small>
+                </span>
+              </span>
+              <span className="disclosure-label" aria-hidden="true">View details</span>
+            </summary>
+            <ul>
+              {failures.map((failure, index) => (
+                <li key={`${failure.filename}-${failure.code}-${index}`}>
+                  <strong>{failure.filename}</strong>
+                  <span>{failure.message}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         </section>
       )}
 
@@ -323,6 +384,7 @@ export function App() {
           </section>
 
           <section className="brief-card" aria-labelledby="brief-title">
+            <p className="section-kicker">02 · Direction</p>
             <h2 id="brief-title">Describe your creative intent</h2>
             <p className="brief-help">
               Tell SelectIQ which story, mood, subjects, and moments should shape the collection.
@@ -371,6 +433,7 @@ export function App() {
 
           <section className="analysis-card" aria-live="polite">
             <div>
+              <p className="section-kicker">03 · Analyze</p>
               <h2>AI feature analysis</h2>
               {analysisStatus === "idle" && (
                 <p>
@@ -425,6 +488,7 @@ export function App() {
               <InterpretationPanel projectId={projectId} target={Number(target) || null} />
               {!comparisonsStarted ? (
                 <section className="analysis-card">
+                  <p className="section-kicker">04 · Refine</p>
                   <h2>Pairwise feedback</h2>
                   <p>Choose between photographs to teach SelectIQ your preferences.</p>
                   <button

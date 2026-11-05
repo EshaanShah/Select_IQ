@@ -51,36 +51,49 @@ export function GuidedSteps({
     },
   ];
   const currentIndex = steps.findIndex((step) => !step.done);
+  const completedCount = steps.filter((step) => step.done).length;
 
   return (
-    <nav className="guided-steps" aria-label="Demo progress">
-      <ol aria-label="Demo steps">
-        {steps.map((step, index) => {
-          const state = step.done ? "done" : index === currentIndex ? "current" : "upcoming";
-          const detail =
-            state === "done"
-              ? (step.doneDetail ?? "Done")
-              : state === "current"
-                ? (step.currentDetail ?? "Current")
-                : "Next";
-          return (
-            <li
-              key={step.title}
-              className={`step ${state}`}
-              aria-current={state === "current" ? "step" : undefined}
-            >
-              <span className="step-number" aria-hidden="true">
-                {state === "done" ? "✓" : index + 1}
-              </span>
-              <span className="step-text">
-                <strong>{step.title}</strong>
-                <small>{detail}</small>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
+    <section className="guided-steps" aria-labelledby="workflow-title">
+      <div className="workflow-heading">
+        <div>
+          <p className="section-kicker">Guided workflow</p>
+          <h2 id="workflow-title">From contact sheet to final selection</h2>
+        </div>
+        <div className="workflow-progress" aria-label={`${completedCount} of 6 steps complete`}>
+          <strong>{completedCount}<span>/6</span></strong>
+          <small>steps complete</small>
+        </div>
+      </div>
+      <nav aria-label="Demo progress">
+        <ol aria-label="Demo steps">
+          {steps.map((step, index) => {
+            const state = step.done ? "done" : index === currentIndex ? "current" : "upcoming";
+            const detail =
+              state === "done"
+                ? (step.doneDetail ?? "Done")
+                : state === "current"
+                  ? (step.currentDetail ?? "Current")
+                  : "Next";
+            return (
+              <li
+                key={step.title}
+                className={`step ${state}`}
+                aria-current={state === "current" ? "step" : undefined}
+              >
+                <span className="step-number" aria-hidden="true">
+                  {state === "done" ? "✓" : index + 1}
+                </span>
+                <span className="step-text">
+                  <strong>{step.title}</strong>
+                  <small>{detail}</small>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    </section>
   );
 }
 

@@ -77,6 +77,7 @@ export function ComparisonPage({ projectId, onProgress }: ComparisonPageProps) {
   if (comparison?.completed) {
     return (
       <section className="comparison-card" aria-live="polite">
+        <p className="section-kicker">04 · Refine</p>
         <h2>Comparison session complete</h2>
         <p>{comparison.budget} of {comparison.budget} choices complete</p>
       </section>
@@ -85,6 +86,7 @@ export function ComparisonPage({ projectId, onProgress }: ComparisonPageProps) {
 
   return (
     <section className="comparison-card" aria-labelledby="comparison-title">
+      <p className="section-kicker">04 · Refine</p>
       <h2 id="comparison-title">Choose the stronger photograph</h2>
       {comparison && <p>Comparison {comparison.sequence} of {comparison.budget}</p>}
       {error && <p className="error" role="alert">{error}</p>}
