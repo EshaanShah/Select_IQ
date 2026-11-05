@@ -1,4 +1,5 @@
 from io import BytesIO
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,6 +16,22 @@ def test_valid_jpeg_is_staged_and_preserves_bytes(tmp_path, jpeg_bytes: bytes) -
     assert staged.width == 16
     assert staged.height == 12
     assert final.name == "portrait.JPG"
+
+
+def test_mpo_camera_jpeg_is_accepted(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    image = MagicMock()
+    image.__enter__.return_value = image
+    image.__exit__.return_value = False
+    image.format = "MPO"
+    image.size = (16, 12)
+    monkeypatch.setattr("selectiq.infrastructure.image_store.Image.open", lambda _: image)
+
+    store = LocalImageStore(tmp_path, max_file_size_bytes=10_000, max_decoded_pixels=1_000)
+    staged = store.stage_upload("project", "camera.JPG", BytesIO(b"mpo-camera-jpeg"))
+
+    assert staged.width == 16
+    assert staged.height == 12
+    image.verify.assert_called_once_with()
 
 
 @pytest.mark.parametrize("filename", ["photo.png", "photo.jfif", "photo.heic"])
