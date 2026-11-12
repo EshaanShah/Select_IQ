@@ -7,6 +7,7 @@ import type {
   ProjectStatus,
   PromptTargetResult,
   Proposal,
+  SatisfactionFeedback,
 } from "../types";
 
 const apiBaseUrl = import.meta.env.VITE_SELECTIQ_API_URL ?? "http://localhost:8000";
@@ -121,6 +122,18 @@ export function exportUrl(projectId: string): string {
 
 export function thumbnailUrl(projectId: string, photoId: string): string {
   return `${apiBaseUrl}/projects/${projectId}/photos/${photoId}/thumbnail`;
+}
+
+export function submitFeedback(
+  projectId: string,
+  rating: number,
+  comment: string | null,
+): Promise<SatisfactionFeedback> {
+  return apiRequest<SatisfactionFeedback>(`/projects/${projectId}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rating, comment }),
+  });
 }
 
 type NextComparisonSummary = { sequence: number; budget: number; completed: boolean };

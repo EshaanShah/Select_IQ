@@ -45,6 +45,7 @@ from selectiq.domain.models import (
     Project,
     Proposal,
     ProposalItem,
+    SatisfactionFeedback,
     SignalProvenance,
 )
 
@@ -304,6 +305,22 @@ class ProposalItemRow(Base):
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class SatisfactionFeedbackRow(Base):
+    __tablename__ = "satisfaction_feedback"
+    __table_args__ = (
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_feedback_rating_range"),
+    )
+
+    project_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class ProposalRepository(Protocol):
     def create(
         self,
@@ -317,6 +334,12 @@ class ProposalRepository(Protocol):
     def latest(self, project_id: str) -> Proposal | None: ...
 
     def set_removed(self, proposal_id: str, photo_id: str, removed: bool) -> Proposal | None: ...
+
+
+class FeedbackRepository(Protocol):
+    def save(self, feedback: SatisfactionFeedback) -> SatisfactionFeedback: ...
+
+    def get(self, project_id: str) -> SatisfactionFeedback | None: ...
 
 
 def create_session_factory(database_url: str) -> sessionmaker[Session]:
@@ -823,3 +846,43 @@ class SqlProposalRepository:
                 ),
                 created_at=row.created_at,
             )
+
+
+class SqlFeedbackRepository:
+    def __init__(self, session_factory: sessionmaker[Session]):
+        self.session_factory = session_factory
+
+    def save(self, feedback: SatisfactionFeedback) -> SatisfactionFeedback:
+        project_uuid = UUID(feedback.project_id)
+        with self.session_factory.begin() as session:
+            row = session.get(SatisfactionFeedbackRow, project_uuid)
+            if row is None:
+                row = SatisfactionFeedbackRow(
+                    project_id=project_uuid,
+                    rating=feedback.rating,
+                    comment=feedback.comment,
+                )
+                session.add(row)
+            else:
+                row.rating = feedback.rating
+                row.comment = feedback.comment
+            session.flush()
+            session.refresh(row)
+            return self._to_feedback(row)
+
+    def get(self, project_id: str) -> SatisfactionFeedback | None:
+        project_uuid = SqlProjectRepository._uuid(project_id)
+        if project_uuid is None:
+            return None
+        with self.session_factory() as session:
+            row = session.get(SatisfactionFeedbackRow, project_uuid)
+            return self._to_feedback(row) if row is not None else None
+
+    @staticmethod
+    def _to_feedback(row: SatisfactionFeedbackRow) -> SatisfactionFeedback:
+        return SatisfactionFeedback(
+            project_id=str(row.project_id),
+            rating=row.rating,
+            comment=row.comment,
+            created_at=row.created_at,
+        )

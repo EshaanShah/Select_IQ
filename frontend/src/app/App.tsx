@@ -12,6 +12,7 @@ import {
 import { InterpretationPanel } from "../features/creative-brief/InterpretationPanel";
 import { ComparisonPage } from "../features/comparisons/ComparisonPage";
 import { GuidedSteps, type ComparisonProgress } from "../features/evaluation/GuidedSteps";
+import { FeedbackForm } from "../features/evaluation/FeedbackForm";
 import { ProposalPanel } from "../features/gallery-review/ProposalPanel";
 import { PhotoGallery } from "../shared/components/PhotoGallery";
 import type {
@@ -575,10 +576,13 @@ export function App() {
                 />
               )}
               {activePath === "/export" && proposal && (
-                <section className="completion-card">
-                  <span aria-hidden="true">✓</span>
-                  <div><p className="section-kicker">Cull complete</p><h2>Your focused story is ready.</h2><p>Export the current selection above or begin another project.</p></div>
-                </section>
+                <>
+                  <section className="completion-card">
+                    <span aria-hidden="true">✓</span>
+                    <div><p className="section-kicker">Cull complete</p><h2>Your focused story is ready.</h2><p>Export the current selection above or begin another project.</p></div>
+                  </section>
+                  <FeedbackForm projectId={projectId} />
+                </>
               )}
             </>
           )}

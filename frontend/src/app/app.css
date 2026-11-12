@@ -302,6 +302,14 @@ h3 { color: var(--text); }
 .completion-card { display: flex; gap: 20px; align-items: center; margin-top: 18px; padding: 28px; border: 1px solid rgb(94 234 212 / 24%); border-radius: 22px; background: linear-gradient(135deg, rgb(45 212 191 / 12%), rgb(139 92 246 / 10%)); }
 .completion-card > span { display: grid; flex: 0 0 auto; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--teal); color: #05241f; font-size: 1.35rem; font-weight: 950; }
 .completion-card p { margin: 0; color: var(--muted); }
+.feedback-card { margin-top: 18px; }
+.rating-options { display: flex; gap: 8px; margin: 22px 0; padding: 0; border: 0; }
+.rating-options legend { width: 100%; margin-bottom: 10px; color: var(--muted); font-size: 0.84rem; }
+.rating-options label { position: relative; }
+.rating-options input { position: absolute; opacity: 0; }
+.rating-options span { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-soft); color: var(--text); cursor: pointer; font-weight: 850; }
+.rating-options input:checked + span { border-color: var(--accent); background: var(--accent-strong); color: white; }
+.rating-options input:focus-visible + span { outline: 2px solid var(--teal); outline-offset: 2px; }
 
 @media (max-width: 900px) {
   .guided-steps ol { grid-template-columns: repeat(3, 1fr); }
