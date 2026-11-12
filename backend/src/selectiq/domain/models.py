@@ -169,6 +169,14 @@ class Proposal:
 
 
 @dataclass(frozen=True, slots=True)
+class SatisfactionFeedback:
+    project_id: str
+    rating: int
+    comment: str | None = None
+    created_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ImportFailure:
     filename: str
     code: str

@@ -113,6 +113,12 @@ test.describe("SelectIQ Alpha guided demo", () => {
     expect(new Set(rows.map((row) => row[0])).size).toBe(4);
     const uploaded = gallery.valid.map((file) => file.split("/").pop());
     for (const [, filename] of rows) expect(uploaded).toContain(filename);
+
+    await page.getByRole("button", { name: /06\s*Export/ }).click();
+    await page.getByRole("radio", { name: "5" }).check();
+    await page.getByLabel("Optional comments").fill("The proposed collection matched the brief.");
+    await page.getByRole("button", { name: "Submit feedback" }).click();
+    await expect(page.getByText("Feedback saved.")).toBeVisible();
   });
 
   test("failure paths explain what went wrong and how to recover", async ({ page }) => {

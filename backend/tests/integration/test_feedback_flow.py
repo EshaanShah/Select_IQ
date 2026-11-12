@@ -7,12 +7,13 @@ import pytest
 from selectiq.domain.errors import ProjectNotFoundError, ValidationError
 from selectiq.infrastructure.project_repository import SqlProposalRepository
 
+
 def feedback_service(project_service):
     """Load the future A-10 types at test time so every case is collected in the red phase."""
     application = import_module("selectiq.application.feedback_service")
     infrastructure = import_module("selectiq.infrastructure.project_repository")
-    repository_type = getattr(infrastructure, "SqlFeedbackRepository")
-    service_type = getattr(application, "FeedbackService")
+    repository_type = infrastructure.SqlFeedbackRepository
+    service_type = application.FeedbackService
     session_factory = project_service.repository.session_factory
     return service_type(
         project_service.repository,

@@ -163,3 +163,10 @@ export type Proposal = {
   createdAt: string | null;
   recommendations: Recommendation[];
 };
+
+export type SatisfactionFeedback = {
+  projectId: ProjectId;
+  rating: number;
+  comment: string | null;
+  createdAt?: string | null;
+};

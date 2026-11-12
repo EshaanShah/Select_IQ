@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from selectiq.application.analysis_service import AnalysisService
 from selectiq.application.comparison_service import ComparisonService
+from selectiq.application.feedback_service import FeedbackService
 from selectiq.application.preference_service import PreferenceService
 from selectiq.application.project_service import ProjectService
 from selectiq.application.proposal_signals import ProjectSignalProvider
@@ -10,6 +11,7 @@ from selectiq.infrastructure.embedding_cache import NumpyEmbeddingCache
 from selectiq.infrastructure.image_store import LocalImageStore
 from selectiq.infrastructure.model_adapters import DeterministicVisualEncoder, OpenClipVisualEncoder
 from selectiq.infrastructure.project_repository import (
+    SqlFeedbackRepository,
     SqlProjectRepository,
     SqlProposalRepository,
     create_session_factory,
@@ -134,4 +136,14 @@ def get_recommendation_service() -> RecommendationService:
         SqlProposalRepository(get_repository().session_factory),
         provider,
         get_image_store(),
+    )
+
+
+@lru_cache
+def get_feedback_service() -> FeedbackService:
+    repository = get_repository()
+    return FeedbackService(
+        repository,
+        SqlProposalRepository(repository.session_factory),
+        SqlFeedbackRepository(repository.session_factory),
     )
