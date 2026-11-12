@@ -58,7 +58,8 @@ async function makeChoices(page: Page) {
     await expect(page.getByText(`Comparison ${choice} of 5`)).toBeVisible();
     await page.getByRole("button", { name: /^Prefer / }).last().click();
   }
-  await expect(page.getByText("Comparison session complete")).toBeVisible();
+  await expect(page).toHaveURL(/\/review$/);
+  await expect(page.getByRole("heading", { name: "Generate a proposal" })).toBeVisible();
   await expect(steps(page)).toContainText("Done: 5 of 5 choices");
 }
 

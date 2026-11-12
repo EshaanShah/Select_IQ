@@ -22,6 +22,9 @@ export type AcceptedPhoto = {
   height: number;
   byteSize: number;
   state: ProcessingState;
+  thumbnailUrl?: string;
+  analysisErrorCode?: string | null;
+  analysisErrorMessage?: string | null;
 };
 
 export type ImportResult = {
@@ -36,6 +39,7 @@ export type ProjectStatus = {
   projectId: ProjectId;
   acceptedCount: number;
   remainingCapacity: number;
+  photos?: AcceptedPhoto[];
   failures: ImportFailure[];
   prompt: string | null;
   target: number | null;

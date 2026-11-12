@@ -40,6 +40,8 @@ describe("gallery import", () => {
     expect(screen.getByText("1 accepted, 1 rejected in this upload.")).toBeInTheDocument();
     expect(screen.getByText("broken.jpg")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Analyze gallery" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/direction");
+    expect(screen.getByRole("button", { name: "Open valid.jpg" })).toBeInTheDocument();
   });
 
   it("restores an existing project's accepted count", async () => {

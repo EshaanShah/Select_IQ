@@ -44,6 +44,22 @@ def test_project_upload_contract(project_service: ProjectService, jpeg_bytes: by
     status = client.get(f"/projects/{project_id}/status")
     assert status.json()["acceptedCount"] == 1
     assert status.json()["remainingCapacity"] == 29
+    assert status.json()["photos"] == [
+        {
+            "photoId": response.json()["accepted"][0]["photoId"],
+            "originalFilename": "valid.jpg",
+            "width": 16,
+            "height": 12,
+            "byteSize": len(jpeg_bytes),
+            "state": "pending",
+            "thumbnailUrl": (
+                f"/projects/{project_id}/photos/"
+                f"{response.json()['accepted'][0]['photoId']}/thumbnail"
+            ),
+            "analysisErrorCode": None,
+            "analysisErrorMessage": None,
+        }
+    ]
 
 
 def test_unknown_project_and_missing_files_are_reported(project_service: ProjectService) -> None:
