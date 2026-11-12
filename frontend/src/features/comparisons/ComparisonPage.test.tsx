@@ -88,6 +88,25 @@ describe("pairwise feedback", () => {
     expect(screen.getByText(/comparison 2 of 5/i)).toBeInTheDocument();
   });
 
+  it("supports keyboard selection for visual culling", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(firstPair))
+      .mockResolvedValueOnce(response({ winnerId: "photo-b" }, 201))
+      .mockResolvedValueOnce(
+        response({ ...firstPair, sequence: 6, completed: true, photoA: null, photoB: null }),
+      );
+    render(<ComparisonPage projectId="project-1" />);
+    await screen.findByAltText("formal-portrait.jpg");
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8000/projects/project-1/comparisons",
+      expect.objectContaining({ body: expect.stringContaining('"winnerId":"photo-b"') }),
+    ));
+  });
+
   it("shows a completed state after the fifth saved choice", async () => {
     const finalPair = { ...firstPair, sequence: 5 };
     fetchMock

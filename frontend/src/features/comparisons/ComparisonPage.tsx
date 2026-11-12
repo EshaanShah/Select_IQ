@@ -74,6 +74,16 @@ export function ComparisonPage({ projectId, onProgress }: ComparisonPageProps) {
     }
   }
 
+  useEffect(() => {
+    if (!comparison?.photoA || !comparison.photoB || saving) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") void choose(comparison.photoA!.photoId);
+      if (event.key === "ArrowRight") void choose(comparison.photoB!.photoId);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [comparison, saving]);
+
   if (comparison?.completed) {
     return (
       <section className="comparison-card" aria-live="polite">
@@ -89,6 +99,7 @@ export function ComparisonPage({ projectId, onProgress }: ComparisonPageProps) {
       <p className="section-kicker">04 · Refine</p>
       <h2 id="comparison-title">Choose the stronger photograph</h2>
       {comparison && <p>Comparison {comparison.sequence} of {comparison.budget}</p>}
+      <p className="comparison-hint">Use the buttons or press ← for the left image and → for the right image.</p>
       {error && <p className="error" role="alert">{error}</p>}
       {comparison?.photoA && comparison.photoB && (
         <div className="comparison-grid">

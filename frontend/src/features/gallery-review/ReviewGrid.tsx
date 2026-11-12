@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { thumbnailUrl } from "../../shared/api/client";
 import type { Recommendation } from "../../shared/types";
 
@@ -16,8 +18,9 @@ export function ReviewGrid({
   onRemove,
   onRestore,
 }: ReviewGridProps) {
+  const [preview, setPreview] = useState<Recommendation | null>(null);
   return (
-    <ul className="review-grid" aria-label="Proposed photographs">
+    <><ul className="review-grid" aria-label="Proposed photographs">
       {recommendations.map((item) => {
         const name = item.originalFilename;
         return (
@@ -27,7 +30,9 @@ export function ReviewGrid({
             aria-label={item.removed ? `${name}, removed` : `${name}, rank ${item.rank}`}
           >
             <div className="thumb">
-              <img src={thumbnailUrl(projectId, item.photoId)} alt={name} loading="lazy" />
+              <button className="review-preview" type="button" onClick={() => setPreview(item)} aria-label={`Open ${name}`}>
+                <img src={thumbnailUrl(projectId, item.photoId)} alt={name} loading="lazy" />
+              </button>
               <span className="rank">{item.rank}</span>
               {item.removed && <span className="removed-badge">Removed</span>}
             </div>
@@ -61,6 +66,14 @@ export function ReviewGrid({
           </li>
         );
       })}
-    </ul>
+    </ul>{preview && (
+      <div className="lightbox" role="dialog" aria-modal="true" aria-label={preview.originalFilename}>
+        <button className="lightbox-backdrop" type="button" onClick={() => setPreview(null)} aria-label="Close preview" />
+        <figure>
+          <img src={thumbnailUrl(projectId, preview.photoId)} alt={preview.originalFilename} />
+          <figcaption><span>#{preview.rank} · {preview.originalFilename}</span><button type="button" onClick={() => setPreview(null)}>Close</button></figcaption>
+        </figure>
+      </div>
+    )}</>
   );
 }

@@ -33,6 +33,12 @@ class AcceptedPhoto(CamelModel):
     state: str
 
 
+class ProjectPhoto(AcceptedPhoto):
+    thumbnailUrl: str
+    analysisErrorCode: str | None = None
+    analysisErrorMessage: str | None = None
+
+
 class RejectedPhotoResponse(CamelModel):
     filename: str
     code: str
@@ -55,6 +61,7 @@ class ProjectStatus(CamelModel):
     projectId: str
     acceptedCount: int
     remainingCapacity: int
+    photos: list[ProjectPhoto]
     failures: list[ImportFailureResponse]
     prompt: str | None
     target: int | None
@@ -273,6 +280,20 @@ def get_status(
         projectId=project_id,
         acceptedCount=len(project.photos),
         remainingCapacity=max(service.max_gallery_size - len(project.photos), 0),
+        photos=[
+            ProjectPhoto(
+                photoId=photo.id,
+                originalFilename=photo.original_filename,
+                width=photo.width,
+                height=photo.height,
+                byteSize=photo.byte_size,
+                state=photo.state.value,
+                thumbnailUrl=f"/projects/{project_id}/photos/{photo.id}/thumbnail",
+                analysisErrorCode=photo.analysis_error_code,
+                analysisErrorMessage=photo.analysis_error_message,
+            )
+            for photo in project.photos
+        ],
         prompt=project.brief.original_text if project.brief is not None else None,
         target=project.target_count,
         failures=[

@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -13,7 +13,9 @@ import { InterpretationPanel } from "../features/creative-brief/InterpretationPa
 import { ComparisonPage } from "../features/comparisons/ComparisonPage";
 import { GuidedSteps, type ComparisonProgress } from "../features/evaluation/GuidedSteps";
 import { ProposalPanel } from "../features/gallery-review/ProposalPanel";
+import { PhotoGallery } from "../shared/components/PhotoGallery";
 import type {
+  AcceptedPhoto,
   AnalysisFailure,
   AnalysisStatus,
   ImportFailure,
@@ -49,6 +51,22 @@ export function App() {
   const [comparisonsStarted, setComparisonsStarted] = useState(false);
   const [comparisonProgress, setComparisonProgress] = useState<ComparisonProgress | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [photos, setPhotos] = useState<AcceptedPhoto[]>([]);
+  const [activePath, setActivePath] = useState(() => normalizePath(window.location.pathname));
+
+  const goTo = useCallback((path: string) => {
+    const next = normalizePath(path);
+    if (window.location.pathname !== next) window.history.pushState({}, "", next);
+    setActivePath(next);
+    if (!navigator.userAgent.includes("jsdom")) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  const handleComparisonProgress = useCallback((progress: ComparisonProgress) => {
+    setComparisonProgress(progress);
+    if (progress.done) goTo("/review");
+  }, [goTo]);
 
   function applyStatus(status: ProjectStatus) {
     setAcceptedCount(status.acceptedCount);
@@ -64,7 +82,22 @@ export function App() {
     setAnalysisCompleted(status.analysisCompleted ?? 0);
     setAnalysisFailures(status.analysisFailures ?? []);
     setAnalysisModel(status.analysisModel ?? null);
+    setPhotos(status.photos ?? []);
+    if (window.location.pathname === "/") {
+      if (status.analysisStatus === "completed") goTo("/analysis");
+      else if (status.acceptedCount > 0) goTo("/direction");
+    }
   }
+
+  useEffect(() => {
+    const onPopState = () => setActivePath(normalizePath(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!projectId && activePath !== "/") goTo("/");
+  }, [activePath, projectId]);
 
   useEffect(() => {
     folderInput.current?.setAttribute("webkitdirectory", "");
@@ -155,7 +188,9 @@ export function App() {
         `${result.batchAcceptedCount} accepted, ${result.batchRejectedCount} rejected in this upload.`,
       );
       setSelectedFiles([]);
+      setPhotos((current) => [...current, ...result.accepted]);
       setAnalysisStatus("idle");
+      goTo("/direction");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The gallery could not be uploaded.");
     } finally {
@@ -208,6 +243,7 @@ export function App() {
     try {
       const result = await startAnalysis(projectId);
       setAnalysisStatus(result.analysisStatus);
+      goTo("/analysis");
       if (result.analysisStatus === "completed") {
         applyStatus(await getProjectStatus(projectId));
       }
@@ -243,12 +279,13 @@ export function App() {
     setComparisonsStarted(false);
     setComparisonProgress(null);
     setProposal(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setPhotos([]);
+    goTo("/");
   }
 
   return (
     <main className="shell">
-      <header className="hero">
+      <header className={activePath === "/" ? "hero" : "hero workspace-hero"}>
         <div className="topbar">
           <div className="brand-lockup">
             <span className="brand-mark" aria-hidden="true">S</span>
@@ -261,7 +298,7 @@ export function App() {
             </button>
           </div>
         </div>
-        <div className="hero-copy">
+        {activePath === "/" ? <div className="hero-copy">
           <p className="eyebrow">AI-assisted photo curation</p>
           <h1>Turn a full shoot into a focused story.</h1>
           <p className="lede">
@@ -273,18 +310,40 @@ export function App() {
             <span>10–30 photos recommended</span>
             <span>Originals stay untouched</span>
           </div>
-        </div>
+        </div> : (
+          <div className="workspace-title">
+            <p className="eyebrow">SelectIQ workspace</p>
+            <h1>{pageTitle(activePath)}</h1>
+            <p>{pageDescription(activePath)}</p>
+          </div>
+        )}
+        {activePath !== "/" && (
+          <div className="workspace-stats">
+            <span aria-label={`${acceptedCount} photos accepted`}><strong>{acceptedCount}</strong> photos</span>
+            <span>{remaining} spaces remaining</span>
+            <span>{briefSaved ? `Target ${savedTarget}` : "Direction not saved"}</span>
+          </div>
+        )}
       </header>
 
-      <GuidedSteps
+      <WorkflowNav
+        activePath={activePath}
+        acceptedCount={acceptedCount}
+        briefSaved={briefSaved}
+        analysisStatus={analysisStatus}
+        proposalReady={proposal !== null}
+        onNavigate={goTo}
+      />
+
+      <div className="workflow-overview"><GuidedSteps
         acceptedCount={acceptedCount}
         savedTarget={savedTarget}
         analysisStatus={analysisStatus}
         comparisons={comparisonProgress}
         proposal={proposal && { selected: proposal.selectedCount, target: proposal.targetCount }}
-      />
+      /></div>
 
-      <section className="upload-card" aria-labelledby="upload-title">
+      {activePath === "/" && <section className="upload-card gallery-workspace" aria-labelledby="upload-title">
         <div className="card-heading">
           <div>
             <p className="section-kicker">01 · Import</p>
@@ -327,6 +386,8 @@ export function App() {
           </label>
         </div>
 
+        <PhotoGallery projectId={projectId} photos={photos} pendingFiles={selectedFiles} />
+
         <div className="selection" aria-live="polite">
           <span>{selectedFiles.length} files selected</span>
           <span className="capacity-detail">
@@ -346,7 +407,7 @@ export function App() {
 
         {batchSummary && <p className="success">{batchSummary}</p>}
         {error && <p className="error" role="alert">{error}</p>}
-      </section>
+      </section>}
 
       {failures.length > 0 && (
         <section className="failures" aria-labelledby="failures-title">
@@ -372,18 +433,19 @@ export function App() {
           </details>
         </section>
       )}
+      {batchSummary && activePath !== "/" && <p className="success">{batchSummary}</p>}
 
       {acceptedCount > 0 && (
         <>
-          <section className="ready" aria-live="polite">
+          {activePath === "/direction" && <section className="ready" aria-live="polite">
             <span aria-hidden="true">✓</span>
             <div>
               <strong>Gallery upload complete.</strong>
               <p>Add more photographs or save the creative brief below.</p>
             </div>
-          </section>
+          </section>}
 
-          <section className="brief-card" aria-labelledby="brief-title">
+          {activePath === "/direction" && <div className="split-workspace"><section className="brief-card" aria-labelledby="brief-title">
             <p className="section-kicker">02 · Direction</p>
             <h2 id="brief-title">Describe your creative intent</h2>
             <p className="brief-help">
@@ -429,9 +491,9 @@ export function App() {
             </button>
             {briefSaved && <p className="success">Brief and target saved.</p>}
             {briefError && <p className="error" role="alert">{briefError}</p>}
-          </section>
+          </section><aside className="visual-rail"><p className="section-kicker">Your contact sheet</p><PhotoGallery projectId={projectId} photos={photos} compact /></aside></div>}
 
-          <section className="analysis-card" aria-live="polite">
+          {["/direction", "/analysis"].includes(activePath) && <section className="analysis-card" aria-live="polite">
             <div>
               <p className="section-kicker">03 · Analyze</p>
               <h2>AI feature analysis</h2>
@@ -481,12 +543,12 @@ export function App() {
                 ))}
               </ul>
             )}
-          </section>
+          </section>}
 
           {projectId && analysisStatus === "completed" && (
             <>
-              <InterpretationPanel projectId={projectId} target={Number(target) || null} />
-              {!comparisonsStarted ? (
+              {activePath === "/analysis" && <InterpretationPanel projectId={projectId} target={Number(target) || null} />}
+              {activePath === "/analysis" && !comparisonsStarted ? (
                 <section className="analysis-card">
                   <p className="section-kicker">04 · Refine</p>
                   <h2>Pairwise feedback</h2>
@@ -494,25 +556,97 @@ export function App() {
                   <button
                     className="submit"
                     type="button"
-                    onClick={() => setComparisonsStarted(true)}
+                    onClick={() => { setComparisonsStarted(true); goTo("/compare"); }}
                   >
                     Start comparisons
                   </button>
                 </section>
-              ) : (
-                <ComparisonPage projectId={projectId} onProgress={setComparisonProgress} />
-              )}
-              {savedTarget !== null && (
+              ) : activePath === "/compare" ? (
+                <ComparisonPage
+                  projectId={projectId}
+                  onProgress={handleComparisonProgress}
+                />
+              ) : null}
+              {savedTarget !== null && ["/analysis", "/review", "/export"].includes(activePath) && (
                 <ProposalPanel
                   projectId={projectId}
                   savedTarget={savedTarget}
                   onProposal={setProposal}
                 />
               )}
+              {activePath === "/export" && proposal && (
+                <section className="completion-card">
+                  <span aria-hidden="true">✓</span>
+                  <div><p className="section-kicker">Cull complete</p><h2>Your focused story is ready.</h2><p>Export the current selection above or begin another project.</p></div>
+                </section>
+              )}
             </>
           )}
         </>
       )}
     </main>
+  );
+}
+
+const knownPaths = new Set(["/", "/direction", "/analysis", "/compare", "/review", "/export"]);
+
+function normalizePath(path: string): string {
+  const clean = path.length > 1 ? path.replace(/\/$/, "") : path;
+  return knownPaths.has(clean) ? clean : "/";
+}
+
+function pageTitle(path: string): string {
+  return ({
+    "/direction": "Shape the creative direction.",
+    "/analysis": "See what the AI sees.",
+    "/compare": "Choose with your eye.",
+    "/review": "Refine the final gallery.",
+    "/export": "Finish the story.",
+  } as Record<string, string>)[path] ?? "Build a focused story.";
+}
+
+function pageDescription(path: string): string {
+  return ({
+    "/direction": "Set the mood, subjects, moments, and final collection size.",
+    "/analysis": "Follow the gallery analysis and inspect the signals shaping your selection.",
+    "/compare": "A few visual choices teach SelectIQ what feels strongest to you.",
+    "/review": "View the proposal as a contact sheet, remove distractions, and restore any image.",
+    "/export": "Review the final count and export filenames for your editing workflow.",
+  } as Record<string, string>)[path] ?? "";
+}
+
+type WorkflowNavProps = {
+  activePath: string;
+  acceptedCount: number;
+  briefSaved: boolean;
+  analysisStatus: AnalysisStatus;
+  proposalReady: boolean;
+  onNavigate: (path: string) => void;
+};
+
+function WorkflowNav({ activePath, acceptedCount, briefSaved, analysisStatus, proposalReady, onNavigate }: WorkflowNavProps) {
+  const items = [
+    { path: "/", label: "Gallery", eyebrow: "01", enabled: true },
+    { path: "/direction", label: "Direction", eyebrow: "02", enabled: acceptedCount > 0 },
+    { path: "/analysis", label: "Analysis", eyebrow: "03", enabled: briefSaved },
+    { path: "/compare", label: "Compare", eyebrow: "04", enabled: analysisStatus === "completed" },
+    { path: "/review", label: "Review", eyebrow: "05", enabled: analysisStatus === "completed" },
+    { path: "/export", label: "Export", eyebrow: "06", enabled: proposalReady },
+  ];
+  return (
+    <nav className="workflow-nav" aria-label="Cull workflow">
+      {items.map((item) => (
+        <button
+          key={item.path}
+          type="button"
+          className={activePath === item.path ? "active" : ""}
+          disabled={!item.enabled}
+          aria-current={activePath === item.path ? "page" : undefined}
+          onClick={() => onNavigate(item.path)}
+        >
+          <span>{item.eyebrow}</span>{item.label}
+        </button>
+      ))}
+    </nav>
   );
 }
