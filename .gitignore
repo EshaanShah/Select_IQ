@@ -27,6 +27,9 @@ var/**
 !var/exports/
 !var/exports/.gitkeep
 private-fixtures/
+Large_gallery/
+demo_gallery/
+demo_gallery_2/
 
 # Editor and operating-system files
 .DS_Store
